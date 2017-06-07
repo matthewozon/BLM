@@ -99,7 +99,39 @@ plot(ua[:,17+100],h)
 plot(ua[:,21+100],h)
 title("fifth day (wind speed component U)")
 
+
+
 figure(7)
+plot(va[:,1],h)
+plot(va[:,25],h)
+plot(va[:,49],h)
+plot(va[:,73],h)
+plot(va[:,97],h)
+plot(va[:,121],h)
+title("once a day (wind speed component V)")
+
+figure(8)
+plot(va[:,1],h)
+plot(va[:,5],h)
+plot(va[:,9],h)
+plot(va[:,13],h)
+plot(va[:,17],h)
+plot(va[:,21],h)
+title("first day (wind speed component V)")
+
+
+figure(9)
+plot(va[:,1+100],h)
+plot(va[:,5+100],h)
+plot(va[:,9+100],h)
+plot(va[:,13+100],h)
+plot(va[:,17+100],h)
+plot(va[:,21+100],h)
+title("fifth day (wind speed component V)")
+
+
+
+figure(10)
 plot(theta[:,1],h)
 plot(theta[:,25],h)
 plot(theta[:,49],h)
@@ -108,7 +140,7 @@ plot(theta[:,97],h)
 plot(theta[:,121],h)
 title("once a day (potential temperature theta)")
 
-figure(8)
+figure(11)
 plot(theta[:,1],h)
 plot(theta[:,5],h)
 plot(theta[:,9],h)
@@ -118,7 +150,7 @@ plot(theta[:,21],h)
 title("first day (potential temperature theta)")
 
 
-figure(9)
+figure(12)
 plot(theta[:,1+100],h)
 plot(theta[:,5+100],h)
 plot(theta[:,9+100],h)
