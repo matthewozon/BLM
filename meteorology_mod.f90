@@ -31,32 +31,25 @@ REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
 REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
 
 ! Meteorological variables
-REAL(dp), DIMENSION(nz) :: ua, va, theta             ! wind veocity components, potential temperature
-REAL(dp), DIMENSION(nz) :: u_new, v_new, theta_new   ! temp var for time update 
-REAL(dp), DIMENSION(nz-1) :: k_closure, Ri_num       ! K of K-theory, Richardson number
-real(dp) :: dudz1, dudz2, dvdz1, dvdz2, dtdz1, dtdz2 ! calculs intermediates
+REAL(dp), DIMENSION(nz) :: ua, va, theta                      ! wind veocity components, potential temperature
+REAL(dp), DIMENSION(nz) :: u_new, v_new, theta_new            ! temp var for time update 
+REAL(dp), DIMENSION(nz-1) :: k_closure, L, h_half             ! K of K-theory, L for model 2
+real(dp) :: dudz1, dudz2, dvdz1, dvdz2, dtdz1, dtdz2          ! calculs intermediates
+REAL(dp), DIMENSION(nz-1) :: k_closure_m, k_closure_h, Ri_num ! K of K-theory, Richardson number, L for model 2
+real(dp) :: f_m, f_h
 
 ! For convenient
 INTEGER :: I, J  ! used for loop
+integer :: model
 
 
 CONTAINS
 
-  ! set the values of K and Ri
-  subroutine calculate_k_and_ri()
-    implicit none
-    !calculate the K(z) of the K-theory for closure problem
-    do I = 1,(nz-1)
-       k_closure(I)=5.0_dp ![m^2 s^{-1}]
-       Ri_num(I) = 0.0     ![] not used yet
-    end do
-  end subroutine calculate_k_and_ri
-
   
   ! update the wind speed and the potential temperature
-  subroutine update_meteo() ! CHECK: is dt the default time step for meteorological processes
+  subroutine update_meteo(model) ! CHECK: is dt the default time step for meteorological processes
     implicit none
-    
+    integer :: model
     ! boundary conditions
     u_new(1)=0.0
     v_new(1)=0.0
@@ -65,40 +58,145 @@ CONTAINS
     theta_new(1)=theta(1) ! the actual surface temperature updated by the previous call of surface_values
     theta_new(nz)=theta(nz)
 
-    !for every other levels
-    do I = 2,(nz-1)
-       ! u component
-       dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
-       dudz2=(ua(I)-ua(I-1))/(h(I)-h(I-1))
-       u_new(I)=ua(I) + dt*(fcor*(va(I)-va(nz)) + k_closure(I)*(dudz1-dudz2)/(0.5*(h(I+1)-h(I-1))) )
+    ! for every other levels
+    if (model==1) then
+       ! model version 1
+       do I = 2,(nz-1)
+          ! u component
+          dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
+          dudz2=(ua(I)-ua(I-1))/(h(I)-h(I-1))
+          u_new(I)=ua(I) + dt*(fcor*(va(I)-va(nz)) + k_closure(I)*(dudz1-dudz2)/(0.5*(h(I+1)-h(I-1))) )
 
-       ! v component
-       dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
-       dvdz2=(va(I)-va(I-1))/(h(I)-h(I-1))
-       v_new(I)=va(I) + dt*(-fcor*(ua(I)-ua(nz)) + k_closure(I)*(dvdz1-dvdz2)/(0.5*(h(I+1)-h(I-1))) )
+          ! v component
+          dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
+          dvdz2=(va(I)-va(I-1))/(h(I)-h(I-1))
+          v_new(I)=va(I) + dt*(-fcor*(ua(I)-ua(nz)) + k_closure(I)*(dvdz1-dvdz2)/(0.5*(h(I+1)-h(I-1))) )
 
-       ! potential temperature
-       dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
-       dtdz2=(theta(I)-theta(I-1))/(h(I)-h(I-1))
-       theta_new(I)= theta(I)  + dt*k_closure(I)*(dtdz1-dtdz2)/(0.5*(h(I+1)-h(I-1))) 
-    end do
+          ! potential temperature
+          dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
+          dtdz2=(theta(I)-theta(I-1))/(h(I)-h(I-1))
+          theta_new(I)= theta(I)  + dt*k_closure(I)*(dtdz1-dtdz2)/(0.5*(h(I+1)-h(I-1))) 
+       end do
+       
+    else if (model==2) then
+       ! model version 2
+       ! update K
+       do I = 1,(nz-1)
+          dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
+          dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
+          k_closure(I)=(L(I)**2)*sqrt(dudz1**2+dvdz1**2) ![m^2 s^{-1}]
+          Ri_num(I) = 0.0     ![] not used yet
+       end do
+
+       ! compute evolution of the wind speed and temperature
+       do I = 2,(nz-1)
+          ! u component
+          dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
+          dudz2=(ua(I)-ua(I-1))/(h(I)-h(I-1))
+          u_new(I)=ua(I) + dt*(fcor*(va(I)-va(nz)) + (k_closure(I)*dudz1-k_closure(I-1)*dudz2)/(0.5*(h(I+1)-h(I-1))) )
+
+          ! v component
+          dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
+          dvdz2=(va(I)-va(I-1))/(h(I)-h(I-1))
+          v_new(I)=va(I) + dt*(-fcor*(ua(I)-ua(nz)) + (k_closure(I)*dvdz1-k_closure(I-1)*dvdz2)/(0.5*(h(I+1)-h(I-1))) )
+
+          ! potential temperature
+          dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
+          dtdz2=(theta(I)-theta(I-1))/(h(I)-h(I-1))
+          theta_new(I)= theta(I)  + dt*(k_closure(I)*dtdz1-k_closure(I-1)*dtdz2)/(0.5*(h(I+1)-h(I-1)))
+       end do
+    else
+       ! model 3
+
+       ! update K and Ri
+       do I = 1,(nz-1)
+          ! compute derivative
+          dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
+          dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
+          dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
+          
+          ! Richardson number
+          Ri_num(I) = (2.*g/(theta(I+1)+theta(I))) * dtdz1/(dudz1**2+dvdz1**2)
+          
+          ! K value
+          k_closure(I)=(L(I)**2)*sqrt(dudz1**2+dvdz1**2) ![m^2 s^{-1}]
+
+          ! correction terms
+          if (Ri_num(I)<0.0) then
+             f_m=sqrt((1.0-16.0*Ri_num(I)))
+             f_h=f_m*sqrt(f_m)
+          else if (Ri_num(I)>=0.2) then
+             f_m=0.1
+             f_h=f_m
+          else
+             f_m=max((1.0-5.0*Ri_num(I))**2,0.1)
+             f_h=f_m
+          end if
+
+          ! correction of the K values
+          k_closure_m(I)=f_m*k_closure(I)
+          k_closure_h(I)=f_h*k_closure(I)  
+       end do
+       
+       ! compute evolution of the wind speed and temperature
+       do I = 2,(nz-1)
+          ! u component
+          dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
+          dudz2=(ua(I)-ua(I-1))/(h(I)-h(I-1))
+          u_new(I)=ua(I) + dt*(fcor*(va(I)-va(nz)) + (k_closure_m(I)*dudz1-k_closure_m(I-1)*dudz2)/(0.5*(h(I+1)-h(I-1))) )
+
+          ! v component
+          dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
+          dvdz2=(va(I)-va(I-1))/(h(I)-h(I-1))
+          v_new(I)=va(I) + dt*(-fcor*(ua(I)-ua(nz)) + (k_closure_m(I)*dvdz1-k_closure_m(I-1)*dvdz2)/(0.5*(h(I+1)-h(I-1))) )
+
+          ! potential temperature
+          dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
+          dtdz2=(theta(I)-theta(I-1))/(h(I)-h(I-1))
+          theta_new(I)= theta(I)  + dt*(k_closure_h(I)*dtdz1-k_closure_h(I-1)*dtdz2)/(0.5*(h(I+1)-h(I-1)))
+       end do
+    end if
 
     ! update the arrays (wind speed and potential temperature)
     ua=u_new
     va=v_new
     theta=theta_new
+    
   end subroutine update_meteo
   
   
-
+  ! set the values of K and Ri
+  subroutine calculate_k_and_ri(model)
+    implicit none
+    integer:: model
+    
+    !calculate the K(z) of the K-theory for closure problem
+    if(model==1) then
+       do I = 1,(nz-1)
+          k_closure(I)=5.0_dp ![m^2 s^{-1}]
+          Ri_num(I) = 0.0     ![] not used yet
+       end do
+    else if(model==2) then
+       do I = 1,(nz-1)
+          h_half(I)=0.5*(h(I)+h(I+1))
+          L(I)=vonk*h_half(I)/(1.+(vonk*h_half(I)/lambda))
+       end do
+    else
+       do I = 1,(nz-1)
+          h_half(I)=0.5*(h(I)+h(I+1))
+          L(I)=vonk*h_half(I)/(1.+(vonk*h_half(I)/lambda))
+       end do
+    end if
+  end subroutine calculate_k_and_ri
 
 
 
 !-----------------------------------------------------------------------------------------
 ! Set initial values for ua, va, theta.
 !-----------------------------------------------------------------------------------------
-  SUBROUTINE meteorology_init()
+  SUBROUTINE meteorology_init(model)
     implicit none
+    integer:: model
     ! Wind velocity
     ua = 0.0_dp
     ua(nz) = 10.0_dp
@@ -113,7 +211,7 @@ CONTAINS
     !theta(2:nz-1) = (theta(nz)-theta(1)) * h(2:nz-1)/h(nz) + theta(1) ! assume to be a linear function of the height
 
     !K of the K-theory for closure
-    call calculate_k_and_ri()
+    call calculate_k_and_ri(model)
   END SUBROUTINE meteorology_init
 
 

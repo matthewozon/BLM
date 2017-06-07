@@ -30,12 +30,15 @@ IMPLICIT NONE
 ! Used for loops
 INTEGER :: I, J
 
+! model selection
+integer :: model=2
+
 !-----------------------------------------------------------------------------------------
 ! Initialization
 !-----------------------------------------------------------------------------------------
 CALL time_init()         ! initialize time, time step, date
 
-CALL meteorology_init()  ! initialize ua, va and theta
+CALL meteorology_init(model)  ! initialize ua, va and theta
 
 CALL open_files()        ! open files for future use
 
@@ -52,7 +55,7 @@ DO WHILE (time <= time_end)
    ! Set lower boundary condition
    CALL surface_values(theta(1), time)
    ! update wind velocity and potential temperature
-   call update_meteo()
+   call update_meteo(model)
    
 
 
