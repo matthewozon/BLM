@@ -31,7 +31,7 @@ IMPLICIT NONE
 INTEGER :: I, J
 
 ! model selection
-integer :: model=2
+integer :: model=3
 
 !-----------------------------------------------------------------------------------------
 ! Initialization
@@ -121,6 +121,10 @@ SUBROUTINE open_files()
   OPEN(13, FILE = TRIM(ADJUSTL(outdir))//'/ua.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
   OPEN(14, FILE = TRIM(ADJUSTL(outdir))//'/va.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
   OPEN(15, FILE = TRIM(ADJUSTL(outdir))//'/theta.dat' , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(16, FILE = TRIM(ADJUSTL(outdir))//'/kt.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(17, FILE = TRIM(ADJUSTL(outdir))//'/kmt.dat'   , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(18, FILE = TRIM(ADJUSTL(outdir))//'/kht.dat'   , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(19, FILE = TRIM(ADJUSTL(outdir))//'/Ri.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
 END SUBROUTINE open_files
 
 
@@ -143,6 +147,10 @@ SUBROUTINE write_files(time)
   WRITE(13, outfmt0) ua                  ! [m s-1], u wind
   WRITE(14, outfmt0) va                  ! [m s-1], v wind
   WRITE(15, outfmt0) theta               ! [K], potential temperature
+  WRITE(16, outfmt1) k_closure           ! [m^2 s^{-1}], k_closure K
+  WRITE(17, outfmt1) k_closure_m         ! [m^2 s^{-1}], k_closure K_m
+  WRITE(18, outfmt1) k_closure_h         ! [m^2 s^{-1}], k_closure K_h
+  WRITE(19, outfmt1) Ri_num              ! [], Richardson number Ri
 END SUBROUTINE write_files
 
 
@@ -156,6 +164,10 @@ SUBROUTINE close_files()
   CLOSE(13)
   CLOSE(14)
   CLOSE(15)
+  CLOSE(16)
+  CLOSE(17)
+  CLOSE(18)
+  CLOSE(19)
 END SUBROUTINE close_files
 
 END PROGRAM main

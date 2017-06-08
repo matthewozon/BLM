@@ -23,8 +23,9 @@ USE grid_mod
 IMPLICIT NONE  ! This applies in all subprograms inside the module
 
 PRIVATE
-PUBLIC :: ua, va, theta, k_closure  ! basic meteorology variables
+PUBLIC :: ua, va, theta, k_closure, k_closure_m, k_closure_h, Ri_num  ! basic meteorology variables
 PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
+! public::k_closure_t, k_closure_m_t, k_closure_h_t, Ri_num_t ! time evolution of K and Richardson
 
 ! Some constants
 REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
@@ -37,6 +38,8 @@ REAL(dp), DIMENSION(nz-1) :: k_closure, L, h_half             ! K of K-theory, L
 real(dp) :: dudz1, dudz2, dvdz1, dvdz2, dtdz1, dtdz2          ! calculs intermediates
 REAL(dp), DIMENSION(nz-1) :: k_closure_m, k_closure_h, Ri_num ! K of K-theory, Richardson number, L for model 2
 real(dp) :: f_m, f_h
+! TO DO: modify this fixed number 121 to the number of time steps
+!REAL(dp), DIMENSION(nz-1,121) ::k_closure_t, k_closure_m_t, k_closure_h_t, Ri_num_t ! time evolution of K and Richardson
 
 ! For convenient
 INTEGER :: I, J  ! used for loop
@@ -85,6 +88,7 @@ CONTAINS
           dudz1=(ua(I+1)-ua(I))/(h(I+1)-h(I))
           dvdz1=(va(I+1)-va(I))/(h(I+1)-h(I))
           k_closure(I)=(L(I)**2)*sqrt(dudz1**2+dvdz1**2) ![m^2 s^{-1}]
+          ! k_closure_t(I,counter+1)
           Ri_num(I) = 0.0     ![] not used yet
        end do
 
