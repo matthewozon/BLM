@@ -17,6 +17,8 @@ USE parameters_mod
 USE time_mod
 USE grid_mod
 
+USE chemf !contains the number of concentrations neq and the concentrations
+
 !-----------------------------------------------------------------------------------------
 ! Variable declaration
 !-----------------------------------------------------------------------------------------
@@ -25,6 +27,7 @@ IMPLICIT NONE  ! This applies in all subprograms inside the module
 PRIVATE
 PUBLIC :: ua, va, theta, k_closure, k_closure_m, k_closure_h, Ri_num  ! basic meteorology variables
 PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
+public :: concentrations ! WARNING: could be part of the chemistry model?
 ! public::k_closure_t, k_closure_m_t, k_closure_h_t, Ri_num_t ! time evolution of K and Richardson
 
 ! Some constants
@@ -38,9 +41,10 @@ REAL(dp), DIMENSION(nz-1) :: k_closure, L, h_half             ! K of K-theory, L
 real(dp) :: dudz1, dudz2, dvdz1, dvdz2, dtdz1, dtdz2          ! calculs intermediates
 REAL(dp), DIMENSION(nz-1) :: k_closure_m, k_closure_h, Ri_num ! K of K-theory, Richardson number, L for model 2
 real(dp) :: f_m, f_h
-! TO DO: modify this fixed number 121 to the number of time steps
-!REAL(dp), DIMENSION(nz-1,121) ::k_closure_t, k_closure_m_t, k_closure_h_t, Ri_num_t ! time evolution of K and Richardson
 
+! Mixing of the chemistry parameter (the concentrations)
+real(dp), dimension(nz,neq):: concentrations, concentrations_new
+real(dp), dimension(neq):: dcdz1, dcdz2
 ! For convenient
 INTEGER :: I, J  ! used for loop
 integer :: model
@@ -60,6 +64,8 @@ CONTAINS
     v_new(nz)=va(nz)
     theta_new(1)=theta(1) ! the actual surface temperature updated by the previous call of surface_values
     theta_new(nz)=theta(nz)
+    concentrations_new(nz,:)=0.0 ! TO DO: make sure that the constant are non-zero
+    
 
     ! for every other levels
     if (model==1) then
@@ -158,13 +164,22 @@ CONTAINS
           dtdz1=(theta(I+1)-theta(I))/(h(I+1)-h(I))
           dtdz2=(theta(I)-theta(I-1))/(h(I)-h(I-1))
           theta_new(I)= theta(I)  + dt*(k_closure_h(I)*dtdz1-k_closure_h(I-1)*dtdz2)/(0.5*(h(I+1)-h(I-1)))
+
+          ! concentrations
+          dcdz1=(concentrations(I+1,:)-concentrations(I,:))/(h(I+1)-h(I))
+          dcdz2=(concentrations(I,:)-concentrations(I-1,:))/(h(I)-h(I-1))
+          concentrations_new(I,:)= concentrations(I,:)  + dt*(k_closure_h(I)*dcdz1-k_closure_h(I-1)*dcdz2)/(0.5*(h(I+1)-h(I-1)))
        end do
+       
+       ! set the concentration flux toward the ground to 0.0
+       concentrations_new(1,:)=concentrations_new(2,:)
     end if
 
     ! update the arrays (wind speed and potential temperature)
     ua=u_new
     va=v_new
     theta=theta_new
+    concentrations=concentrations_new
     
   end subroutine update_meteo
   

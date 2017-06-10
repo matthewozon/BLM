@@ -37,4 +37,23 @@ REAL(dp), PARAMETER :: longitude = longitude_deg * PI/180.0_dp  ! [rad]
 
 REAL(dp), PARAMETER :: fcor = 2*Omega*SIN(latitude)  ! Coriolis parameter
 
+! chemistry
+real(dp):: O2, N2 ![cm^{-3}] concentrations
+real(dp), parameter:: H2O=1.0d16                     ! [cm^{-3}] water vapor concentration
+real(dp), parameter:: Dm=0.0538*0.001                ! [kg cm^{-2}] 
+real(dp), parameter:: emi_fac=100.0*10.0**(-12)/3.6  ! [kg kg^{-1} s^{-1}]
+
+real(dp), parameter:: a    = 0.0027
+real(dp), parameter:: cl1  = 1.006
+real(dp), parameter:: ct1  = 95000.0     ! [J mol^{-1}]
+real(dp), parameter:: ct2  = 230000.0    ! [J mol^{-1}]
+real(dp), parameter:: Ts   = 303.15      ! [K]
+real(dp), parameter:: Tm   = 314.0       ! [K]
+real(dp), parameter:: beta = 0.09        ! [K^{-1}]
+
+real(dp), parameter:: iso_mass_mol=68.0  ! [g mol^{-1}]
+real(dp), parameter:: alp_mass_mol=136.0 ! [g mol^{-1}]
+
+real(dp), parameter:: p00=1.01325d5      ! [Pa]
+
 END MODULE parameters_mod

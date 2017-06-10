@@ -58,6 +58,38 @@ f=open("output/Ri.dat","r")
 riSTR=readlines(f)
 close(f)
 
+f=open("output/emi_iso.dat","r")
+isoSTR=readlines(f)
+close(f)
+
+f=open("output/emi_alp.dat","r")
+alpSTR=readlines(f)
+close(f)
+
+f=open("output/OH.dat","r")
+ohSTR=readlines(f)
+close(f)
+
+f=open("output/HO2.dat","r")
+ho2STR=readlines(f)
+close(f)
+
+f=open("output/H2SO4.dat","r")
+h2so4STR=readlines(f)
+close(f)
+
+f=open("output/isoprene.dat","r")
+isopreneSTR=readlines(f)
+close(f)
+
+f=open("output/alpha.dat","r")
+alphapSTR=readlines(f)
+close(f)
+
+f=open("output/ELVOC.dat","r")
+elvocSTR=readlines(f)
+close(f)
+
 #convert strings to arrays of float64
 theta=convertToFloat64(thetaSTR,25)
 ua=convertToFloat64(uaSTR,25)
@@ -67,6 +99,14 @@ kt=convertToFloat64(ktSTR,25)
 kmt=convertToFloat64(kmtSTR,25)
 kht=convertToFloat64(khtSTR,25)
 ri=convertToFloat64(riSTR,25)
+iso=convertToFloat64(isoSTR,25)
+alp=convertToFloat64(alpSTR,25)
+oh=convertToFloat64(ohSTR,25)
+ho2=convertToFloat64(ho2STR,25)
+h2so4=convertToFloat64(h2so4STR,25)
+isoprene=convertToFloat64(isopreneSTR,25)
+alphap=convertToFloat64(alphapSTR,25)
+elvoc=convertToFloat64(elvocSTR,25)
 h= [0.0,   10,   20,   30,   40, 50,   60,   70,   80,   90, 100,  120,  140,  160,  180,  200,  230,  260,  300,  350,  400,  450,  500,  550,  600,  650,  700,  800,  900, 1000,  1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700, 2800, 2900, 3000]
 
 
@@ -74,6 +114,7 @@ h= [0.0,   10,   20,   30,   40, 50,   60,   70,   80,   90, 100,  120,  140,  1
 locs = [0.0, 10.0, 20.0, 30.0, 40.0, 49.0]
 labels = (string(h[50]),string(h[41]),string(h[31]),string(h[21]),string(h[11]),string(h[1]))
 
+if false
 #now we can plot
 figure(1)
 #imshow(flipdim(theta,1)-273.15)
@@ -134,7 +175,7 @@ title(s)
 xlabel("time (h)")
 ylabel("height (m)")
 #yticks(locs,labels)
-
+end
 
 ##### Richardson number
 figure(7)
@@ -146,7 +187,7 @@ maxri=maximum(ri)
 #dRi=(maxri-minri)/9.0
 #ticksColor=(minri,minri+dRi,minri+2.0dRi,minri+3.0dRi,minri+4.0dRi,minri+5.0dRi,minri+6.0dRi,minri+7.0dRi,minri+8.0dRi,minri+9.0dRi)#, format="%7.2f"
 colorbar()#(norm=LogNorm(vmin=minri, vmax=maxri))#(extend="max")#(ticks=ticksColor,format="%4.2f")
-s = @sprintf "K_m-value (m^{2} s^{-1}) (%3.2f,%7.2f)" minimum(ri) maximum(ri)
+s = @sprintf "Richardson number (%3.2f,%7.2f)" minimum(ri) maximum(ri)
 title(s)
 xlabel("time (h)")
 ylabel("height (m)")
@@ -288,3 +329,74 @@ plot(24.*reshape(t,121),reshape(theta[1,:],121)-273.15, linewidth=2)
 title("boundary temperature")
 ylabel("potential temperature theta (C)")
 xlabel("time (h)")
+
+
+
+figure(18)
+plot(squeeze(t,1),squeeze(iso,1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(alp,1), linewidth=2,marker="o")
+title("emission rates")
+legend(["isoprene","alpha"])
+xlabel("time")
+ylabel("emission rate")
+
+
+
+figure(19)
+contourf(repmat(t,50,1),repmat(h,1,121),oh,1000)
+colorbar()
+s = @sprintf "OH (cm^{-3}) (%3.2f,%10.2f)" minimum(oh) maximum(oh)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
+
+
+figure(20)
+contourf(repmat(t,50,1),repmat(h,1,121),ho2,1000)
+colorbar()
+s = @sprintf "HO2 (cm^{-3}) (%3.2f,%10.2f)" minimum(ho2) maximum(ho2)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
+
+
+figure(21)
+contourf(repmat(t,50,1),repmat(h,1,121),h2so4,1000)
+colorbar()
+s = @sprintf "H2SO4 (cm^{-3}) (%3.2f,%10.2f)" minimum(h2so4) maximum(h2so4)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
+
+
+figure(22)
+contourf(repmat(t,50,1),repmat(h,1,121),isoprene,1000)
+colorbar()
+s = @sprintf "isoprene (cm^{-3}) (%3.2f,%10.2f)" minimum(isoprene) maximum(isoprene)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
+
+
+figure(23)
+contourf(repmat(t,50,1),repmat(h,1,121),alphap,1000)
+colorbar()
+s = @sprintf "alpha-pinene (cm^{-3}) (%3.2f,%10.2f)" minimum(alphap) maximum(alphap)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
+
+
+figure(24)
+contourf(repmat(t,50,1),repmat(h,1,121),elvoc,1000)
+colorbar()
+s = @sprintf "ELVOC (cm^{-3}) (%3.2f,%10.2f)" minimum(elvoc) maximum(elvoc)
+title(s)
+xlabel("time (h)")
+ylabel("height (m)")
+#yticks(locs,labels)
