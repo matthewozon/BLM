@@ -400,3 +400,68 @@ title(s)
 xlabel("time (h)")
 ylabel("height (m)")
 #yticks(locs,labels)
+
+
+
+figure(25)
+s = @sprintf "OH (cm^{-3}) (%3.2f,%10.2f)" minimum(oh) maximum(oh)
+title(s)
+plot(squeeze(t,1),squeeze(oh[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(oh[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("oh [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+
+figure(26)
+s = @sprintf "HO2 (cm^{-3}) (%3.2f,%10.2f)" minimum(ho2) maximum(ho2)
+title(s)
+plot(squeeze(t,1),squeeze(ho2[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(ho2[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("oh [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+
+figure(27)
+s = @sprintf "H2SO4 (cm^{-3}) (%3.2f,%10.2f)" minimum(h2so4) maximum(h2so4)
+title(s)
+plot(squeeze(t,1),squeeze(h2so4[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(h2so4[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("oh [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+
+figure(28)
+s = @sprintf "isoprene (cm^{-3}) (%3.2f,%10.2f)" minimum(isoprene) maximum(isoprene)
+title(s)
+plot(squeeze(t,1),squeeze(isoprene[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(isoprene[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("isoprene [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+figure(29)
+s = @sprintf "alphap (cm^{-3}) (%3.2f,%10.2f)" minimum(alphap) maximum(alphap)
+title(s)
+plot(squeeze(t,1),squeeze(alphap[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(alphap[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("isoprene [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+
+figure(30)
+s = @sprintf "elvoc (cm^{-3}) (%3.2f,%10.2f)" minimum(elvoc) maximum(elvoc)
+title(s)
+plot(squeeze(t,1),squeeze(elvoc[2,:],1), linewidth=2,marker="o")
+plot(squeeze(t,1),squeeze(elvoc[6,:],1), linewidth=2,marker="o")
+xlabel("time")
+ylabel("isoprene [molec cm^{-3}]")
+legend(["10 m","50 m"])
+
+
+#isoprene=convertToFloat64(isopreneSTR,25)
+#alphap=convertToFloat64(alphapSTR,25)
+#elvoc=convertToFloat64(elvocSTR,25)
