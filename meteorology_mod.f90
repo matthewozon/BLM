@@ -28,7 +28,6 @@ PRIVATE
 PUBLIC :: ua, va, theta, k_closure, k_closure_m, k_closure_h, Ri_num  ! basic meteorology variables
 PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
 public :: concentrations ! WARNING: could be part of the chemistry model?
-! public::k_closure_t, k_closure_m_t, k_closure_h_t, Ri_num_t ! time evolution of K and Richardson
 
 ! Some constants
 REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters

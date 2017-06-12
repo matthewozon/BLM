@@ -189,7 +189,7 @@ MODULE chemf
 
       ! 17 = HNO3
       Conc_dot(17) = - k_rate(30)*Conc(17)&
-           + k_rate(18)*Conc(3)*Conc(5) + 2.0*k_rate(26)*Conc(19)*H2O + 2.0*k_rate(27)*Conc(19)*H2O**2 ! CHECK: square mandatory?
+           + k_rate(18)*Conc(3)*Conc(5) + 2.0*k_rate(26)*Conc(19)*H2O + 2.0*k_rate(27)*Conc(19)*H2O**2
 
       ! 18 = NO3
       Conc_dot(18) = -(k_rate(22)*Conc(6)+k_rate(24)*Conc(5))*Conc(18)&

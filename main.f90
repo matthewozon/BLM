@@ -105,7 +105,8 @@ DO WHILE (time <= time_end)
                  Emi_iso = 0.0
               end if
               ! set the concentrations of Mair, O2 N2
-              M_air=air_pressure(I)/(kb*TEMP(I))
+              M_air=10.0**(-6)*air_pressure(I)/(kb*TEMP(I)) !
+              ! write(*,*) air_pressure(I), " " , TEMP(I), " ", air_pressure(I)/(kb*TEMP(I)), " ", M_air
               O2=0.21*M_air
               N2=0.78*M_air
               !reset the constants
@@ -121,7 +122,8 @@ DO WHILE (time <= time_end)
               !concentrations(I,22) = 0.0                    ! H2SO4 ! remove this one at some point
               !concentrations(I,23) = 2. * M_air / 1.E9      ! alpha-p
               !concentrations(I,25) = 0.0                    ! ELVOC ! remove this one at some point
-              CALL chemistry_step(concentrations(I,:),time,time+dt,O2,N2,M_air,H2O,Emi_iso,Emi_alp,TEMP(I),exp_coszen)
+              write(*,*) "O2 ", O2, ", N2 ", N2, ", O3 " , concentrations(I,1), ", H2O ", H2O 
+              CALL chemistry_step(concentrations(I,:),time,time+dt_chem,O2,N2,M_air,H2O,Emi_iso,Emi_alp,TEMP(I),exp_coszen)
            end do
         else
            call emission_rate_alpha(TEMP(2))
@@ -145,8 +147,8 @@ DO WHILE (time <= time_end)
  
 
   ! it's probably already done it the meteo updateforce an open boundary and null flux toward the ground
-  concentrations(nz,:)=0.0
-  concentrations(1,:)=concentrations(2,:)
+   concentrations(nz,:)=0.0
+   concentrations(1,:)=concentrations(2,:)
   
   ! update wind velocity and potential temperature
   call update_meteo(model)
