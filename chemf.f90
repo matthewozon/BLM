@@ -36,9 +36,9 @@ MODULE chemf
 
   CONTAINS
 
-    SUBROUTINE chemistry_step(Conc,time1,time2,O2_in,N2_in,M_in,H2O_in,Emi_iso_in,Emi_alp_in,TEMP_in,exp_coszen)
+    SUBROUTINE chemistry_step(Conc,time1,time2,O2_in,N2_in,M_in,H2O_in,Emi_iso_in,Emi_alp_in,CS_h2so4,CS_elvoc,TEMP_in,exp_coszen)
       REAL(dp), INTENT(inout) :: Conc(neq)
-      REAL(dp), INTENT(in)    :: time1, time2, O2_in, N2_in, M_in, H2O_in, TEMP_in, Emi_iso_in, Emi_alp_in
+      REAL(dp), INTENT(in)    :: time1, time2, O2_in, N2_in, M_in, H2O_in, TEMP_in, Emi_iso_in, Emi_alp_in, CS_h2so4, CS_elvoc
       REAL(dp), INTENT(in)    :: exp_coszen
 
       ! for DLSODA:
@@ -63,7 +63,7 @@ MODULE chemf
 !      Emi_alp=Emi_alp_in
 !      Emi_iso=Emi_iso_in
 
-      CALL calculate_k(exp_coszen,Emi_alp_in,Emi_iso_in)
+      CALL calculate_k(exp_coszen,Emi_alp_in,Emi_iso_in,CS_h2so4,CS_elvoc)
 
       CALL DLSODE (f_lsode, neq, Conc, time1b, time2, itol, rtol, atol, itask, &
                    istate, iopt, rwork, lrw, iwork, liw, dummy, mf)
@@ -71,9 +71,9 @@ MODULE chemf
     END SUBROUTINE chemistry_step
 
 
-    SUBROUTINE calculate_k(exp_coszen,Emi_alp_in,Emi_iso_in)
+    SUBROUTINE calculate_k(exp_coszen,Emi_alp_in,Emi_iso_in,CS_h2so4,CS_elvoc)
 
-       REAL(dp), INTENT(in) :: exp_coszen, Emi_alp_in, Emi_iso_in
+       REAL(dp), INTENT(in) :: exp_coszen, Emi_alp_in, Emi_iso_in, CS_h2so4, CS_elvoc
 
        k_rate(1)  = 3.83D-5*exp_coszen                                                                                ! O3 = O1D + O2 :
        k_rate(2)  = 1.63D-10*EXP(60/TEMP)                                                                             ! O1D + H2O = OH + OH
@@ -106,13 +106,13 @@ MODULE chemf
        k_rate(27) = 1.80D-39                                                                                          ! N2O5 + H2O + H2O = HNO3 + HNO3 + H2O
        k_rate(28) = 2.03D-16*(TEMP/300)**4.57*EXP(693/TEMP)                                                           ! HO2 + O3 = OH + O2 + O2
        k_rate(29) = 1.5D-12                                                                                           ! SO2 + OH = H2SO4
-       k_rate(30) = 0.001                                                                                             ! CS for H2SO4 and HNO3
+       k_rate(30) = CS_h2so4 !0.001                                                                                       ! CS for H2SO4 and HNO3
        k_rate(31) = Emi_alp_in                                                                                       ! Emission rate of alpha-pinene
        k_rate(32) = Emi_iso_in                                                                                       ! Emission rate of isoprene
        k_rate(33) = 1.2D-11*EXP(440/TEMP)                                                                             ! alp-pinene + OH
        k_rate(34) = 6.3D-16*EXP(-580/TEMP)                                                                            ! alp-pinene + O3
        k_rate(35) = 1.03D-14*EXP(-1995/TEMP)                                                                          ! isoprene + O3
-       k_rate(36) = 0.001                                                                                             ! CS for ELVOC
+       k_rate(36) = CS_elvoc !0.001                                                                                    ! CS for ELVOC
 
     END SUBROUTINE calculate_k
 

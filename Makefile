@@ -1,7 +1,7 @@
 F90 = gfortran-5
 FFLAGS = -O0 -g -ffpe-trap=invalid,zero,overflow -ffree-line-length-none -std=legacy
 
-OBJS = parameters_mod.o time_mod.o grid_mod.o chemf.o opkdmain.o opkda1.o opkda2.o meteorology_mod.o main.o
+OBJS = parameters_mod.o time_mod.o grid_mod.o aerosol_mod.o chemf.o opkdmain.o opkda1.o opkda2.o meteorology_mod.o main.o
 EXE = blm
 
 all: $(EXE)
@@ -27,6 +27,10 @@ opkda2.o: opkda2.f
 
 opkdmain.o: opkdmain.f
 	$(F90) $(FFLAGS)  -c opkdmain.f
+
+# special rule for aerosol module
+aerosol.o: aerosol_mod.f90 parameters_mod.o
+	$(F90) $(FFLAGS)  -c aerosol_mod.f90
 
 clean:
 	@rm -v -f *.o *.mod blm

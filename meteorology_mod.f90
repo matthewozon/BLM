@@ -18,6 +18,7 @@ USE time_mod
 USE grid_mod
 
 USE chemf !contains the number of concentrations neq and the concentrations
+USE aerosol_mod ! 
 
 !-----------------------------------------------------------------------------------------
 ! Variable declaration
@@ -28,6 +29,7 @@ PRIVATE
 PUBLIC :: ua, va, theta, k_closure, k_closure_m, k_closure_h, Ri_num  ! basic meteorology variables
 PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
 public :: concentrations ! WARNING: could be part of the chemistry model?
+public :: particle_conc
 
 ! Some constants
 REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
@@ -44,6 +46,11 @@ real(dp) :: f_m, f_h
 ! Mixing of the chemistry parameter (the concentrations)
 real(dp), dimension(nz,neq):: concentrations, concentrations_new
 real(dp), dimension(neq):: dcdz1, dcdz2
+
+! aerosol mixing
+real(dp), dimension(nz,nr_bins):: particle_conc, particle_conc_new
+real(dp), dimension(nr_bins):: dpdz1, dpdz2
+
 ! For convenient
 INTEGER :: I, J  ! used for loop
 integer :: model
@@ -64,6 +71,7 @@ CONTAINS
     theta_new(1)=theta(1) ! the actual surface temperature updated by the previous call of surface_values
     theta_new(nz)=theta(nz)
     concentrations_new(nz,:)=0.0 ! TO DO: make sure that the constant are non-zero
+    particle_conc_new(nz,:)=0.0
     
 
     ! for every other levels
@@ -168,10 +176,17 @@ CONTAINS
           dcdz1=(concentrations(I+1,:)-concentrations(I,:))/(h(I+1)-h(I))
           dcdz2=(concentrations(I,:)-concentrations(I-1,:))/(h(I)-h(I-1))
           concentrations_new(I,:)= concentrations(I,:)  + dt*(k_closure_h(I)*dcdz1-k_closure_h(I-1)*dcdz2)/(0.5*(h(I+1)-h(I-1)))
+
+          ! concentrations
+          dpdz1=(particle_conc(I+1,:)-particle_conc(I,:))/(h(I+1)-h(I))
+          dpdz2=(particle_conc(I,:)-particle_conc(I-1,:))/(h(I)-h(I-1))
+          particle_conc_new(I,:)= particle_conc(I,:)  + dt*(k_closure_h(I)*dpdz1-k_closure_h(I-1)*dpdz2)/(0.5*(h(I+1)-h(I-1)))
        end do
        
        ! set the concentration flux toward the ground to 0.0
        concentrations_new(1,:)=concentrations_new(2,:)
+       particle_conc_new(1,:)=particle_conc_new(2,:)
+       
     end if
 
     ! update the arrays (wind speed and potential temperature)
@@ -179,6 +194,8 @@ CONTAINS
     va=v_new
     theta=theta_new
     concentrations=concentrations_new
+    particle_conc=particle_conc_new
+    
     
   end subroutine update_meteo
   

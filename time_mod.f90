@@ -64,6 +64,9 @@ SUBROUTINE Time_Init()
   ! Start to run chemistry module after 3 days to save computation time
   time_start_chemistry = 3*24*one_hour
 
+  ! Start to run aerosol evolution after 3 days
+  time_start_aerosol = 3*24*one_hour
+
   ! Current time and date
   time = time_start
   daynumber = daynumber_start
