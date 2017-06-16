@@ -45,12 +45,14 @@ real(dp):: exp_coszen, Emi_iso, Emi_alp, M_air ! M_air is really similar to Mair
 real(dp),dimension(nz)::air_pressure, TEMP, PN_atm, PM_atm
 real(dp):: tmpEmiIso,tmpEmiAlp
 logical, parameter:: chem_on=.true.
+logical, parameter:: aerosol_on=.true.
+integer:: aerosol_init_on
 real(dp), dimension(nr_bins) :: layer1_particles
 real(dp), dimension(nr_cond,nz) :: cond_sink
 
 tmpEmiIso=0.0
 tmpEmiAlp=0.0
-
+aerosol_init_on=1
 
 
 
@@ -160,45 +162,61 @@ DO WHILE (time <= time_end)
   !---------------------------------------------------------------------------------------
   ! Start to calculate aerosol processes only after some time to save the computation time
   IF (time >= time_start_aerosol) THEN  ! start to calculate aerosol after time_start_aerosol
-    ! Calculate aerosol every dt_aero
-     IF ( MOD( NINT((time - time_start_aerosol)*1000.0_dp), NINT(dt_aero*1000.0_dp) ) == 0 ) THEN
-        ! compute temperature and pressure for each layer
-        TEMP=theta-(g/Cp)*(h-h(1))
-        ! calculate the pressure (Mair=P/(kT))
-        air_pressure=barometric_law(p00, TEMP, h, nz)
-        do I =1,nz
-           ! set the concentrations of Mair
-           M_air=(air_pressure(I)/(kb*TEMP(I)))/(NA*140000.0)
-           !write(*,*) M_air
-           !pause
-           ! vapour concentration
-           cond_vapour(1)=concentrations(I,21)*1.0D6
-           cond_vapour(2)=concentrations(I,25)*1.0D6
-
-           ! dry deposition
-
-           ! nucleation
-           call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
-
-           ! coagulation
-           ! call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass,M_air)
-
-           ! condensation
+     if (aerosol_on) then
+        if (aerosol_init_on==1) then
+           aerosol_init_on=0
+           do I = 1,nz
+              CALL Aerosol_init(diameter, particle_mass, particle_volume, particle_conc(I,:), &
+                   particle_density, nucleation_coef, molecular_mass, molar_mass, &
+                   molecular_volume, molecular_dia, mass_accomm, cond_sink(:,I))
+              PN_atm(I)=PN
+              PM_atm(I)=PM
+           end do
+        end if
+        
+        ! Calculate aerosol every dt_aero
+        IF ( MOD( NINT((time - time_start_aerosol)*1000.0_dp), NINT(dt_aero*1000.0_dp) ) == 0 ) THEN
+           ! compute temperature and pressure for each layer
+           TEMP=theta-(g/Cp)*(h-h(1))
+           ! calculate the pressure (Mair=P/(kT))
+           air_pressure=barometric_law(p00, TEMP, h, nz)
+           !do I =1,nz-1
+           !   write(*,*) sum(particle_conc(I,:))
+           !   write(*,*) sum(particle_conc(I,:)*particle_mass)
+           !end do
            
-           call Condensation(dt_aero, TEMP(I), air_pressure(I), mass_accomm, molecular_mass, &
-  molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-  particle_conc(I,:), diameter, cond_vapour, M_air, cond_sink(:,I))
-
-           if (I==1) then
-              layer1_particles=particle_conc(I,:)
-              !write(*,*) layer1_particles
+           do I =2,nz-1
+              ! set the concentrations of Mair
+              ! M_air=(air_pressure(I)/(kb*TEMP(I)))/(NA*140000.0)
+              ! write(*,*) Mair
               !pause
-           end if
-           call PNandPM(particle_conc(I,:))
-           PN_atm(I)=PN
-           PM_atm(I)=PM
-        end do
-     
+              ! vapour concentration
+              cond_vapour(1)=concentrations(I,21)*1.0D6
+              cond_vapour(2)=concentrations(I,25)*1.0D6
+
+              ! dry deposition
+
+              ! nucleation
+              call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
+
+              ! coagulation
+              call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass,Mair)
+
+              ! condensation
+              call Condensation(dt_aero, TEMP(I), air_pressure(I), mass_accomm, molecular_mass, &
+                   molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
+                   particle_conc(I,:), diameter, cond_vapour, Mair, cond_sink(:,I))
+
+              if (I==1) then
+                 layer1_particles=particle_conc(I,:)
+                 !write(*,*) layer1_particles
+                 !pause
+              end if
+              call PNandPM(particle_conc(I,:))
+              PN_atm(I)=PN
+              PM_atm(I)=PM
+           end do
+        end IF     
      END IF  ! time - time_start_aerosol, dt_aero
   END IF  ! time >= time_start_aerosol
  
@@ -207,7 +225,7 @@ DO WHILE (time <= time_end)
    concentrations(nz,:)=0.0
    concentrations(1,:)=concentrations(2,:)
 
-   particle_conc(nz,:)=0.0
+   !particle_conc(nz,:)=0.0 ! no outflow
    particle_conc(1,:)=particle_conc(2,:)
    
   ! update wind velocity and potential temperature
@@ -225,7 +243,9 @@ DO WHILE (time <= time_end)
     WRITE(*, '(a8, f8.3, a6)') 'time = ', time/one_hour, '  hours'
     CALL write_files(time)
     !write(*,*) diameter
-    write(*,*) layer1_particles
+    !write(*,*) layer1_particles
+    !write(*,*) PN_atm
+    !write(*,*) PM_atm
   END IF
 
   ! Count loop number
@@ -282,6 +302,7 @@ SUBROUTINE open_files()
 
   OPEN(45, FILE = TRIM(ADJUSTL(outdir))//'/PN.dat'      ,status='replace',action='write')
   OPEN(46, FILE = TRIM(ADJUSTL(outdir))//'/PM.dat'      ,status='replace',action='write')
+  OPEN(47, FILE = TRIM(ADJUSTL(outdir))//'/CS.dat'      ,status='replace',action='write')
 END SUBROUTINE open_files
 
 
@@ -328,7 +349,7 @@ SUBROUTINE write_files(time)
   if (time>time_start_aerosol) then
      WRITE(21, outfmt4) diameter
   end if
-  
+  WRITE(47, outfmt0) cond_sink(1,:)        ! [m^{-3}...hopfully], particle concentration
   
 END SUBROUTINE write_files
 
@@ -358,6 +379,7 @@ SUBROUTINE close_files()
   CLOSE(29)
   CLOSE(45)
   CLOSE(46)
+  CLOSE(47)
 END SUBROUTINE close_files
 
   !-------------------------------------------------------

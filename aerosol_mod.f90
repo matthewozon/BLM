@@ -106,32 +106,32 @@ SUBROUTINE Aerosol_init(diameter, particle_mass, particle_volume, particle_conc,
 
   END SUBROUTINE Aerosol_init
 
-  SUBROUTINE PNandPM(particle_conc)
-    real(dp),dimension(nr_bins)::particle_conc
-    PN=sum(particle_conc)
-    PM=sum(particle_conc*particle_mass)
+  SUBROUTINE PNandPM(particle_conc_NM)
+    real(dp),dimension(nr_bins)::particle_conc_NM
+    PN=sum(particle_conc_NM)
+    PM=sum(particle_conc_NM*particle_mass)
   end SUBROUTINE PNandPM
   
   
-SUBROUTINE Nucleation(timestep,nucleation_coef,h2so4_conc,particle_conc) ! (Add input and output variables here)
+SUBROUTINE Nucleation(timestep,nucleation_coef,h2so4_conc,particle_conc_nuc) ! (Add input and output variables here)
   real(dp), intent(in)::timestep, nucleation_coef, h2so4_conc
-  real(dp), dimension(nr_bins)::particle_conc
+  real(dp), dimension(nr_bins)::particle_conc_nuc
   ! Consider how kinetic H2SO4 nucleation influence the number concentrations of particles 
   ! in the fist size bin particle_conc(1) within one model time step
-  particle_conc(1)=particle_conc(1)+timestep*nucleation_coef*h2so4_conc**2
+  particle_conc_nuc(1)=particle_conc_nuc(1)+timestep*nucleation_coef*h2so4_conc**2
 END SUBROUTINE Nucleation
 
 
 SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_mass, &
   molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-  particle_conc, diameter, cond_vapour,M_air, cond_sink) ! Add more variables if you need it
+  particle_conc_cond, diameter, cond_vapour,M_air, cond_sink) ! Add more variables if you need it
   
     REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: diameter, particle_mass
     REAL(DP), DIMENSION(nr_cond), INTENT(IN) :: molecular_mass, molecular_dia, &
     molecular_volume, molar_mass
     REAL(DP), INTENT(IN) :: timestep, temperature, pressure, mass_accomm
 
-    REAL(DP), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc
+    REAL(DP), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc_cond
 
     REAL(DP), DIMENSION(2), INTENT(IN) :: cond_vapour  ! condensing vapour concentrations, which is H2SO4 and organics (ELVOC) [#/m^3]
     
@@ -172,10 +172,12 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
 
     ! Thermal velocity of vapour molecule
     speed_gas=SQRT(8D0*kb*temperature/(pi*molecular_mass)) ! speed of H2SO4 molecule
+
+    
     
     ! Calculate the Fuchs-Sutugin correction factor:
     do j= 1,nr_cond
-       kn_number(j,:) = 2.0_dp*l_gas/(diameter+molecular_dia(j))
+       kn_number(j,:) = 2.0_dp*(3.0*(diffusivity_gas(j)+diffusivity)/sqrt(speed_gas(j)**2+speed_p**2))/(diameter+molecular_dia(j))
        beta_fs(j,:) = 0.75_dp*mass_accomm*(1.0_dp+kn_number(j,:))/(kn_number(j,:)**2+0.283_dp*kn_number(j,:)*mass_accomm+kn_number(j,:)+0.75_dp*mass_accomm)
     end do
     
@@ -183,7 +185,9 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
     do j= 1,nr_cond
        CR(j,:) = 2.0_dp*pi*(diameter+molecular_dia(j))*(diffusivity+diffusivity_gas(j))*beta_fs(j,:)
     end do
-    
+    !write(*,*) CR(1,:)
+    !pause
+    !write(*,*) sum(particle_conc_cond)
     ! Calculate the new single particle volume after condensation (particle_volume_new):
     particle_volume_new=particle_volume
     do j= 1,nr_cond
@@ -205,27 +209,27 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
           xj=1.0
        end if
        
-       particle_conc_new(j)=particle_conc_new(j)+xj*particle_conc(j)
-       particle_conc_new(j+1)=particle_conc_new(j+1)+(1.0-xj)*particle_conc(j)
+       particle_conc_new(j)=particle_conc_new(j)+xj*particle_conc_cond(j)
+       particle_conc_new(j+1)=particle_conc_new(j+1)+(1.0-xj)*particle_conc_cond(j)
     END DO
 
     ! for the last bin, maybe consider an out-of-range loss
     
     ! Update the particle concentration in the particle_conc vector:
-    particle_conc=particle_conc_new
+    particle_conc_cond=particle_conc_new
 
     ! compute the condensation sink here
     do j = 1,nr_cond
-       cond_sink(j) = sum(particle_conc*CR(j,:)) ! particle [nr_bins], CR [nr_cond nr_bins]
+       cond_sink(j) = sum(particle_conc_cond*CR(j,:)) ! particle [nr_bins], CR [nr_cond nr_bins]
     end do
     
 END SUBROUTINE Condensation
 
-SUBROUTINE Coagulation(timestep, particle_conc, diameter, &
+SUBROUTINE Coagulation(timestep, particle_conc_coag, diameter, &
   temperature,pressure,particle_mass,M_air) ! Add more variables if you need it
   
     REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: diameter
-    REAL(DP), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc
+    REAL(DP), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc_coag
     REAL(DP), INTENT(IN) :: timestep
     REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: particle_mass       ! mass of one particle                                 
     REAL(DP), INTENT(IN) :: temperature, pressure
@@ -237,7 +241,7 @@ SUBROUTINE Coagulation(timestep, particle_conc, diameter, &
 
     REAL(DP) ::       dyn_visc, &                                   ! dynamic viscosity, kg/(m*s)
                       l_gas                                         ! Gas mean free path in air
-    INTEGER  :: i
+    INTEGER  :: i, j
 
     REAL(DP), DIMENSION(nr_bins) :: particle_conc_new
 
@@ -278,13 +282,14 @@ SUBROUTINE Coagulation(timestep, particle_conc, diameter, &
     ! and then calculate the loss (loss2) due to coagulation with larger particles
     ! Then add the two loss terms together loss = loss1 + loss2
 
-    !particle_conc_new = particle_conc
+    particle_conc_new=particle_conc_coag
     do i = 1,nr_bins
-       particle_conc_new(i) = particle_conc(i) - timestep*particle_conc(i)*sum(coagulation_coef(i,(i+1):nr_bins)*particle_conc((i+1):nr_bins))
+       do j = (i+1),nr_bins
+          particle_conc_new(i) = particle_conc_new(i)&
+               - timestep*particle_conc_coag(i)*coagulation_coef(i,j)*particle_conc_coag(j)
+       end do
     end do
-    particle_conc=particle_conc_new
-    
-
+    particle_conc_coag=particle_conc_new
 END SUBROUTINE Coagulation
   
 SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF, & 

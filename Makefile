@@ -1,5 +1,5 @@
 F90 = gfortran-5
-FFLAGS = -O0 -g -ffpe-trap=invalid,zero,overflow -ffree-line-length-none -std=legacy
+FFLAGS = -O2 -ffpe-trap=invalid,zero,overflow -ffree-line-length-none -std=legacy #-g
 
 OBJS = parameters_mod.o time_mod.o grid_mod.o aerosol_mod.o chemf.o opkdmain.o opkda1.o opkda2.o meteorology_mod.o main.o
 EXE = blm

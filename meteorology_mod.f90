@@ -71,7 +71,6 @@ CONTAINS
     theta_new(1)=theta(1) ! the actual surface temperature updated by the previous call of surface_values
     theta_new(nz)=theta(nz)
     concentrations_new(nz,:)=0.0 ! TO DO: make sure that the constant are non-zero
-    particle_conc_new(nz,:)=0.0
     
 
     ! for every other levels
