@@ -56,4 +56,8 @@ real(dp), parameter:: alp_mass_mol=136.0 ! [g mol^{-1}]
 
 real(dp), parameter:: p00=1.01325d5      ! [Pa]
 
+
+! aerosol and mixing
+REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
+
 END MODULE parameters_mod

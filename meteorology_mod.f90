@@ -26,6 +26,8 @@ USE aerosol_mod !
 IMPLICIT NONE  ! This applies in all subprograms inside the module
 
 PRIVATE
+
+! TO DO: move the global variable to one module shared by every module (it could include the parameter module)
 PUBLIC :: ua, va, theta, k_closure, k_closure_m, k_closure_h, Ri_num  ! basic meteorology variables
 PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
 public :: concentrations ! WARNING: could be part of the chemistry model?
@@ -33,7 +35,7 @@ public :: particle_conc
 
 ! Some constants
 REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
-REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
+! REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
 
 ! Meteorological variables
 REAL(dp), DIMENSION(nz) :: ua, va, theta                      ! wind veocity components, potential temperature
@@ -70,7 +72,9 @@ CONTAINS
     v_new(nz)=va(nz)
     theta_new(1)=theta(1) ! the actual surface temperature updated by the previous call of surface_values
     theta_new(nz)=theta(nz)
-    concentrations_new(nz,:)=0.0 ! TO DO: make sure that the constant are non-zero
+    concentrations_new(nz,:)=0.0
+    particle_conc_new(nz,:)=particle_conc(nz,:)
+    ! TO DO: set the new particle concentration in the top layer to the previous state (steady state on nz)
     
 
     ! for every other levels

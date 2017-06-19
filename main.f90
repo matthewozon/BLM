@@ -166,9 +166,7 @@ DO WHILE (time <= time_end)
         if (aerosol_init_on==1) then
            aerosol_init_on=0
            do I = 1,nz
-              CALL Aerosol_init(diameter, particle_mass, particle_volume, particle_conc(I,:), &
-                   particle_density, nucleation_coef, molecular_mass, molar_mass, &
-                   molecular_volume, molecular_dia, mass_accomm, cond_sink(:,I))
+              call init_part_conc(particle_conc(nz,:), diameter)
               PN_atm(I)=PN
               PM_atm(I)=PM
            end do
@@ -185,7 +183,7 @@ DO WHILE (time <= time_end)
            !   write(*,*) sum(particle_conc(I,:)*particle_mass)
            !end do
            
-           do I =2,nz-1
+           do I =1,nz-1 ! the first layer shouldn't be computed because it is equal to the second layer (but for plotting purposes, I will keep the first layer computation)
               ! set the concentrations of Mair
               ! M_air=(air_pressure(I)/(kb*TEMP(I)))/(NA*140000.0)
               ! write(*,*) Mair
@@ -200,14 +198,14 @@ DO WHILE (time <= time_end)
               call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
 
               ! coagulation
-              call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass,Mair)
+              call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass)
 
-              ! condensation
+              ! condensation ! why a difference arise in the particle number, particle mass
               call Condensation(dt_aero, TEMP(I), air_pressure(I), mass_accomm, molecular_mass, &
                    molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-                   particle_conc(I,:), diameter, cond_vapour, Mair, cond_sink(:,I))
+                   particle_conc(I,:), diameter, cond_vapour, cond_sink(:,I))
 
-              if (I==1) then
+              if (I==2) then
                  layer1_particles=particle_conc(I,:)
                  !write(*,*) layer1_particles
                  !pause
@@ -221,12 +219,12 @@ DO WHILE (time <= time_end)
   END IF  ! time >= time_start_aerosol
  
 
+  ! by removing those boundary condition, the mixing knows a non-null flux of concentration in the first layer. Will it be considerable? It looks like it's not really important
   ! it's probably already done it the meteo updateforce an open boundary and null flux toward the ground
-   concentrations(nz,:)=0.0
-   concentrations(1,:)=concentrations(2,:)
+  ! concentrations(1,:)=concentrations(2,:) ! impose the null flux in the first layer
 
-   !particle_conc(nz,:)=0.0 ! no outflow
-   particle_conc(1,:)=particle_conc(2,:)
+  !particle_conc(nz,:)=0.0 ! no outflow
+  ! particle_conc(1,:)=particle_conc(2,:) ! impose the null flux in the first layer
    
   ! update wind velocity and potential temperature
   call update_meteo(model)
@@ -242,10 +240,6 @@ DO WHILE (time <= time_end)
   IF ( MOD( NINT((time - time_start)*1000.0_dp), NINT(dt_output*1000.0_dp) ) == 0 ) THEN
     WRITE(*, '(a8, f8.3, a6)') 'time = ', time/one_hour, '  hours'
     CALL write_files(time)
-    !write(*,*) diameter
-    !write(*,*) layer1_particles
-    !write(*,*) PN_atm
-    !write(*,*) PM_atm
   END IF
 
   ! Count loop number

@@ -10,16 +10,15 @@ MODULE aerosol_mod
     ! so that numbers will be in 64bit floating point
   ! http://en.wikipedia.org/wiki/Double_precision_floating-point_format
 
-  REAL(dp), PARAMETER :: ka = 0.4D0              ! von Karman constant, dimensionless
   INTEGER, PARAMETER ::  nr_bins = 100           ! Number of particle size bins
   INTEGER, PARAMETER ::  nr_cond = 2             ! Number of condensable vapours
-  REAL(DP), PARAMETER :: Rg=8.3145D0             ! Universal gas constant J mol^-1 K^-1
     
   REAL(DP), DIMENSION(nr_bins) :: diameter  ,&    ! Diameter of each size bin
        particle_mass                        ,&    ! mass of one particle in each size bin
        particle_volume                      ,&    ! volume concentration in each size bin
        coag_loss                            ,&    ! coagulation loss rate of particles in each size bin
        v_dep                                      ! Dry deposition velocity of particles
+  real(dp) :: last_dia, last_vol                  ! extra bin for losses due to out of range
   
   
        
@@ -86,9 +85,12 @@ SUBROUTINE Aerosol_init(diameter, particle_mass, particle_volume, particle_conc,
     DO i=2,nr_bins
        diameter(i)=diameter(i-1)*(2.5D-6/diameter(1))**(1D0/(nr_bins-1))
     END DO
+
+    ! compute the diameter and the volume of the last+1 theoretcal bin
+    last_dia = diameter(nr_bins)*(2.5D-6/diameter(1))**(1D0/(nr_bins-1))
+    last_vol = 1D0/6D0 * pi * last_dia**3
       
-    particle_conc = 1D0 ! Assume an initial particle number concentration of 1 m^-3
-    where((abs(diameter-2D-7)-MINVAL(abs(diameter-2D-7)))<1D-20)  particle_conc=2D8 ! add 200 cm^-3 200 nm sized accumulation mode particles
+    call init_part_conc(particle_conc,diameter)
     
     particle_density = 1.4D3                                        ! Assumed fixed particle density [kg/m^3]
     particle_volume = 1D0/6D0 * pi * diameter**3                      ! Single particle volume (m^3)
@@ -111,6 +113,17 @@ SUBROUTINE Aerosol_init(diameter, particle_mass, particle_volume, particle_conc,
     PN=sum(particle_conc_NM)
     PM=sum(particle_conc_NM*particle_mass)
   end SUBROUTINE PNandPM
+
+  subroutine init_part_conc(particle_conc, diameter)
+    REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: diameter               ! diamter of each size bin
+    REAL(DP), DIMENSION(nr_bins), INTENT(OUT) :: particle_conc         ! number concentration
+
+    ! Assume an initial particle number concentration of 1 m^-3
+    particle_conc = 1D0
+    ! add 200 cm^-3 200 nm sized accumulation mode particles
+    where((abs(diameter-2D-7)-MINVAL(abs(diameter-2D-7)))<1D-20)  particle_conc=2D8
+  end subroutine init_part_conc
+  
   
   
 SUBROUTINE Nucleation(timestep,nucleation_coef,h2so4_conc,particle_conc_nuc) ! (Add input and output variables here)
@@ -124,7 +137,7 @@ END SUBROUTINE Nucleation
 
 SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_mass, &
   molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-  particle_conc_cond, diameter, cond_vapour,M_air, cond_sink) ! Add more variables if you need it
+  particle_conc_cond, diameter, cond_vapour, cond_sink) ! Add more variables if you need it
   
     REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: diameter, particle_mass
     REAL(DP), DIMENSION(nr_cond), INTENT(IN) :: molecular_mass, molecular_dia, &
@@ -144,7 +157,7 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
     
     REAL(DP) :: dyn_visc, l_gas, dens_air
 
-    real(dp), intent(in):: M_air
+    ! real(dp), intent(in):: M_air
 
     real(dp), DIMENSION(nr_cond), INTENT(out) :: cond_sink
     
@@ -158,8 +171,8 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
     ! Add more variabels as you need it...
 
     dyn_visc = 1.8D-5*(temperature/298D0)**0.85D0  ! dynamic viscosity of air
-    dens_air=M_air*pressure/(Rg*temperature)        ! Air density
-    l_gas=2D0*dyn_visc/(pressure*SQRT(8D0*M_air/(pi*Rg*temperature))) ! Gas mean free path in air (m)
+    dens_air=Mair*pressure/(R*temperature)        ! Air density
+    l_gas=2D0*dyn_visc/(pressure*SQRT(8D0*Mair/(pi*R*temperature))) ! Gas mean free path in air (m)
 
     slip_correction = 1D0+(2D0*l_gas/(diameter))*&
     (1.257D0+0.4D0*exp(-1.1D0/(2D0*l_gas/diameter))) ! Cunninghams slip correction factor (Seinfeld and Pandis eq 9.34) 
@@ -168,13 +181,11 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
     speed_p = SQRT(8D0*kb*temperature/(pi*particle_mass))                     ! speed of particles (m/s)
   
     diffusivity_gas=5D0/(16D0*NA*molecular_dia**2D0*dens_air)*&
-    SQRT(Rg*temperature*M_air/(2D0*pi)*(molar_mass+M_air)/molar_mass)            ! Diffusivity of condensable vapours (m^2 s^-1)
+    SQRT(R*temperature*Mair/(2D0*pi)*(molar_mass+Mair)/molar_mass)            ! Diffusivity of condensable vapours (m^2 s^-1)
 
     ! Thermal velocity of vapour molecule
     speed_gas=SQRT(8D0*kb*temperature/(pi*molecular_mass)) ! speed of H2SO4 molecule
 
-    
-    
     ! Calculate the Fuchs-Sutugin correction factor:
     do j= 1,nr_cond
        kn_number(j,:) = 2.0_dp*(3.0*(diffusivity_gas(j)+diffusivity)/sqrt(speed_gas(j)**2+speed_p**2))/(diameter+molecular_dia(j))
@@ -185,9 +196,7 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
     do j= 1,nr_cond
        CR(j,:) = 2.0_dp*pi*(diameter+molecular_dia(j))*(diffusivity+diffusivity_gas(j))*beta_fs(j,:)
     end do
-    !write(*,*) CR(1,:)
-    !pause
-    !write(*,*) sum(particle_conc_cond)
+    
     ! Calculate the new single particle volume after condensation (particle_volume_new):
     particle_volume_new=particle_volume
     do j= 1,nr_cond
@@ -202,18 +211,30 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
        !in size bin 1 to nr_bins-1 to the fixed volume (diameter) grid
        xj = (particle_volume(j+1)-particle_volume_new(j))/(particle_volume(j+1)-particle_volume(j))
 
+       ! avoid negative or too rapid growth. Sometimes negative values appear when the particle sizes are small and it becomes unstable.
        if (xj<0.0) then
           xj=0.0
        end if
        if (xj>1.0) then
           xj=1.0
        end if
-       
+
+       ! distribute the new formed particle into the fix bins
        particle_conc_new(j)=particle_conc_new(j)+xj*particle_conc_cond(j)
        particle_conc_new(j+1)=particle_conc_new(j+1)+(1.0-xj)*particle_conc_cond(j)
     END DO
 
-    ! for the last bin, maybe consider an out-of-range loss
+    ! for the last bin, maybe consider an out-of-range loss (should not account for much if the volume range include large particle)
+    xj = (last_vol-particle_volume_new(nr_bins))/(last_vol-particle_volume(nr_bins))
+    ! avoid negative or too rapid growth. Sometimes negative values appear when the particle sizes are small and it becomes unstable.
+    if (xj<0.0) then
+       xj=0.0
+    end if
+    if (xj>1.0) then
+       xj=1.0
+    end if
+    ! compute the loss by condensation (no volume conservation)
+    particle_conc_new(nr_bins)=particle_conc_new(nr_bins)+xj*particle_conc_cond(nr_bins)
     
     ! Update the particle concentration in the particle_conc vector:
     particle_conc_cond=particle_conc_new
@@ -226,7 +247,7 @@ SUBROUTINE Condensation(timestep, temperature, pressure, mass_accomm, molecular_
 END SUBROUTINE Condensation
 
 SUBROUTINE Coagulation(timestep, particle_conc_coag, diameter, &
-  temperature,pressure,particle_mass,M_air) ! Add more variables if you need it
+  temperature,pressure,particle_mass) !,M_air) ! Add more variables if you need it
   
     REAL(DP), DIMENSION(nr_bins), INTENT(IN) :: diameter
     REAL(DP), DIMENSION(nr_bins), INTENT(INOUT) :: particle_conc_coag
@@ -245,13 +266,13 @@ SUBROUTINE Coagulation(timestep, particle_conc_coag, diameter, &
 
     REAL(DP), DIMENSION(nr_bins) :: particle_conc_new
 
-    real(dp), intent(in)::M_air
+    ! real(dp), intent(in)::M_air
 
     ! The Coagulation coefficient is calculated according to formula 13.56 in Seinfield and Pandis (2006), Page 603
     
     dyn_visc = 1.8D-5*(temperature/298.)**0.85                                              ! Dynamic viscosity of air
 
-    l_gas=2D0*dyn_visc/(pressure*SQRT(8D0*M_air/(pi*Rg*temperature)))                        ! Gas mean free path in air (m)
+    l_gas=2D0*dyn_visc/(pressure*SQRT(8D0*Mair/(pi*R*temperature)))                        ! Gas mean free path in air (m)
 
     slip_correction = 1D0+(2D0*l_gas/(diameter))*&
          (1.257D0+0.4D0*exp(-1.1D0/(2D0*l_gas/diameter)))                                        ! Cunninghams slip correction factor (Seinfeld and Pandis eq 9.34)
@@ -282,18 +303,25 @@ SUBROUTINE Coagulation(timestep, particle_conc_coag, diameter, &
     ! and then calculate the loss (loss2) due to coagulation with larger particles
     ! Then add the two loss terms together loss = loss1 + loss2
 
-    particle_conc_new=particle_conc_coag
+    particle_conc_new = particle_conc_coag
     do i = 1,nr_bins
-       do j = (i+1),nr_bins
-          particle_conc_new(i) = particle_conc_new(i)&
-               - timestep*particle_conc_coag(i)*coagulation_coef(i,j)*particle_conc_coag(j)
-       end do
+       particle_conc_new(i) = particle_conc_new(i)&
+            - timestep*particle_conc_coag(i)*sum(coagulation_coef(i,(i+1):nr_bins)*particle_conc_coag((i+1):nr_bins))
     end do
     particle_conc_coag=particle_conc_new
+    
+    !particle_conc_new=particle_conc_coag
+    !do i = 1,nr_bins
+    !   do j = (i+1),nr_bins
+    !      particle_conc_new(i) = particle_conc_new(i)&
+    !           - timestep*particle_conc_coag(i)*coagulation_coef(i,j)*particle_conc_coag(j)
+    !   end do
+    !end do
+    !particle_conc_coag=particle_conc_new
 END SUBROUTINE Coagulation
   
 SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF, & 
-   Richards_nr10m,wind_speed10m,M_air) ! Add more variables if you need it
+   Richards_nr10m,wind_speed10m) !,M_air) ! Add more variables if you need it
    
       REAL(dp), DIMENSION(nr_bins), INTENT(IN) :: diameter
       
@@ -314,16 +342,16 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        f0_SO2, f0_O3, f0_HNO3, f0_isoprene, f0_apinene, &
        rclSO2, rclO3, rgsSO2, rgsO3
 
-      real(dp), intent(in)::M_air
+      ! real(dp), intent(in)::M_air
             
-       dens_air = M_air*pressure/(Rg*temperature)    ! Air density (kg/m^3)
+       dens_air = Mair*pressure/(R*temperature)    ! Air density (kg/m^3)
        dyn_visc = 1.8D-5*(temperature/298.)**0.85   ! dynamic viscosity of air (kg/(m*s))
        v_kinematic = dyn_visc/dens_air              ! kinematic viscosity of air (m^2/s)
        
        zr=10D0                                      ! Reference height [m]
        L_Ob=zr/Richards_nr10m                       ! Monin-Obukhov length scale
        z0m = 0.9D0 ! Surface roughness length for momentum evergreen, needleleaf trees (m)     
-       u_friction=ka*wind_speed10m/(log(zr/z0m))     ! Friction velocity (Eq. 16.67 from Seinfeld and Pandis, 2006)
+       u_friction=vonk*wind_speed10m/(log(zr/z0m))     ! Friction velocity (Eq. 16.67 from Seinfeld and Pandis, 2006)
  
        ! Land use category paramaters from Seinfeld and Pandis, 2006 Table 19.2: 
        r_coll = 2D-3 ! radius of collector evergreen, needleleaf trees
