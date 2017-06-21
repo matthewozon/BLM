@@ -49,6 +49,7 @@ logical, parameter:: aerosol_on=.true.
 integer:: aerosol_init_on
 real(dp), dimension(nr_bins) :: layer1_particles
 real(dp), dimension(nr_cond,nz) :: cond_sink
+real(dp) :: DSWF
 
 tmpEmiIso=0.0
 tmpEmiAlp=0.0
@@ -182,6 +183,20 @@ DO WHILE (time <= time_end)
            !   write(*,*) sum(particle_conc(I,:))
            !   write(*,*) sum(particle_conc(I,:)*particle_mass)
            !end do
+
+           ! dry deposition
+           DSWF = 6D2 * exp_coszen
+           call dry_dep_velocity(diameter,particle_density,TEMP(2),air_pressure(2),DSWF, & 
+                0.5_dp*(Ri_num(1)+Ri_num(2)),sqrt(ua(2)**2+va(2)**2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
+           ! write(*,*) v_dep
+           ! particle_conc(2,:) = particle_conc(2,:)*exp(-v_dep/h(2)*dt_aero)
+           ! particle_conc(1,:) = particle_conc(2,:)
+           !concentrations(2,20) = concentrations(2,20)*exp(-vd_SO2/h(2)*dt_aero)
+           !concentrations(1,20) = concentrations(2,20)
+           !concentrations(2,1) = concentrations(2,1)*exp(-vd_O3/h(2)*dt_aero)
+           !concentrations(1,1) = concentrations(2,1)
+           !concentrations(2,17) = concentrations(2,17)*exp(-vd_HNO3/h(2)*dt_aero)
+           !concentrations(1,17) = concentrations(2,17)
            
            do I =1,nz-1 ! the first layer shouldn't be computed because it is equal to the second layer (but for plotting purposes, I will keep the first layer computation)
               ! set the concentrations of Mair
@@ -189,10 +204,8 @@ DO WHILE (time <= time_end)
               ! write(*,*) Mair
               !pause
               ! vapour concentration
-              cond_vapour(1)=concentrations(I,21)*1.0D6
-              cond_vapour(2)=concentrations(I,25)*1.0D6
-
-              ! dry deposition
+              cond_vapour(1)=concentrations(I,21)*1.0D6 ! H2SO4
+              cond_vapour(2)=concentrations(I,25)*1.0D6 ! ELVOC
 
               ! nucleation
               call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
