@@ -36,24 +36,25 @@ IMPLICIT NONE
 ! Used for loops
 INTEGER :: I, J
 
-! model selection
-integer :: model=3 ! REMINDER: chemistry only available for the model 3
-
+!+++++++++++++++++!
+! model selection !
+!+++++++++++++++++!
+integer, parameter:: model=3                        ! REMINDER: chemistry only available for the model 3
+logical, parameter:: chem_on=.true.                 ! turn ON/OFF the chemistry model
+logical, parameter:: aerosol_on=.true.              ! turn ON/OFF the aerosol model
+logical, parameter:: nucleation_on=.true.           ! if aerosol is ON, it turns ON/OFF the nucleation process
+logical, parameter:: condensation_on=.true.         ! if aerosol is ON, it turns ON/OFF the condensation process
+logical, parameter:: coagulation_on=.false.          ! if aerosol is ON, it turns ON/OFF the coagulation process
+logical, parameter:: dry_deposition_on=.false.       ! if aerosol is ON, it turns ON/OFF the loss by dry deposition
 
 ! TO DO: move those variables where they belong
-real(dp):: exp_coszen, Emi_iso, Emi_alp, M_air ! M_air is really similar to Mair... change the name
+real(dp):: exp_coszen, M_air ! TO DO: M_air is really similar to Mair... change the name Emi_iso and Emi_alp will be part of param_mod and must be removed from this scope Emi_iso, Emi_alp,
 real(dp),dimension(nz)::air_pressure, TEMP, PN_atm, PM_atm
-real(dp):: tmpEmiIso,tmpEmiAlp
-logical, parameter:: chem_on=.true.
-logical, parameter:: aerosol_on=.true.
-integer:: aerosol_init_on
-real(dp), dimension(nr_bins) :: layer1_particles
-real(dp), dimension(nr_cond,nz) :: cond_sink
+real(dp):: tmpEmiIso,tmpEmiAlp    ! temporary buffer for the emission rates (only for writting purposes)
+real(dp), dimension(nr_cond,nz) :: cond_sink  ! [s^{-1}] condensation sink 
 real(dp) :: DSWF
+integer:: aerosol_init_on = 1 ! a trigger to make sur that the particle concentration is initialized once at the beginning of the aerosol time
 
-tmpEmiIso=0.0
-tmpEmiAlp=0.0
-aerosol_init_on=1
 
 
 
@@ -66,8 +67,10 @@ CALL meteorology_init(model)  ! initialize ua, va and theta
 
 ! chemistry init
 concentrations=0.0
+tmpEmiIso=0.0
+tmpEmiAlp=0.0
 
-! initialize  aerosol ! only the first layer contains particle at the beginning... or not?
+! initialize  aerosol
 do I = 1,nz
    CALL Aerosol_init(diameter, particle_mass, particle_volume, particle_conc(I,:), &
         particle_density, nucleation_coef, molecular_mass, molar_mass, &
@@ -76,7 +79,7 @@ do I = 1,nz
    PM_atm(I)=PM
 end do
 
-layer1_particles=particle_conc(1,:)
+!layer1_particles=particle_conc(1,:)
 
 
 CALL open_files()             ! open files for future use
@@ -115,24 +118,25 @@ DO WHILE (time <= time_end)
            ! for each layer, compute the chemistry
            do I = 2,nz-1
               ! set emision values
-              if (I==2) then
+              if (I==2) then ! if the layer contains the majority of the leaves
                  call emission_rate_alpha(TEMP(2))
                  call emission_rate_isoprene(TEMP(2),exp_coszen)
                  ! for the record
                  !write(*,*) Emi_iso, " ", Emi_alp
                  tmpEmiIso = Emi_iso
                  tmpEmiAlp = Emi_alp
-              else
+              else ! for the layer without leaves
                  ! set emission to 0.0
                  Emi_alp = 0.0
                  Emi_iso = 0.0
               end if
+
               ! set the concentrations of Mair, O2 N2
-              M_air=10.0**(-6)*air_pressure(I)/(kb*TEMP(I)) !
-              ! write(*,*) air_pressure(I), " " , TEMP(I), " ", air_pressure(I)/(kb*TEMP(I)), " ", M_air
+              M_air=10.0**(-6)*air_pressure(I)/(kb*TEMP(I)) ! it does vary with the layer
               O2=0.21*M_air
               N2=0.78*M_air
-              !reset the constants
+              
+              ! reset the constants
               concentrations(I,1)  = 24. * M_air / 1.E9     ! O3 concentration
               concentrations(I,4)  = 0.0                    ! REST
               concentrations(I,5)  = 0.2 * M_air / 1.E9     ! NO2
@@ -140,21 +144,18 @@ DO WHILE (time <= time_end)
               concentrations(I,9)  = 100. * M_air / 1.E9    ! CO
               concentrations(I,10) = 0.0                    ! CO2
               concentrations(I,11) = 1759. * M_air / 1.E9   ! CH4
-              !concentrations(I,13) = 2. * M_air / 1.E9      ! C5H8  ! remove this one at some point
               concentrations(I,20) = 0.5 * M_air / 1.E9     ! SO2
-              !concentrations(I,22) = 0.0                    ! H2SO4 ! remove this one at some point
-              !concentrations(I,23) = 2. * M_air / 1.E9      ! alpha-p
-              !concentrations(I,25) = 0.0                    ! ELVOC ! remove this one at some point
-              !write(*,*) "O2 ", O2, ", N2 ", N2, ", O3 " , concentrations(I,1), ", H2O ", H2O 
-              CALL chemistry_step(concentrations(I,:),time,time+dt_chem,O2,N2,M_air,H2O,Emi_iso,Emi_alp,cond_sink(1,I),cond_sink(2,I),TEMP(I),exp_coszen)
+
+              ! run chemistry for the time period dt_chem
+              CALL chemistry_step(concentrations(I,:),time,time+dt_chem,O2,N2,M_air,Emi_iso,Emi_alp,cond_sink(1,I),cond_sink(2,I),TEMP(I),exp_coszen)
            end do
-        else
+        else ! only for plotting use when the chemistry is OFF
            call emission_rate_alpha(TEMP(2))
            call emission_rate_isoprene(TEMP(2),exp_coszen)
            write(*,*) Emi_iso, " ", Emi_alp
            tmpEmiIso = Emi_iso
            tmpEmiAlp = Emi_alp
-        end if
+        end if ! chemistry ON/OFF
     END IF  ! time - time_start_chemistry, dt_chem
   END IF  ! time >= time_start_chemistry
 
@@ -163,7 +164,8 @@ DO WHILE (time <= time_end)
   !---------------------------------------------------------------------------------------
   ! Start to calculate aerosol processes only after some time to save the computation time
   IF (time >= time_start_aerosol) THEN  ! start to calculate aerosol after time_start_aerosol
-     if (aerosol_on) then
+     if (aerosol_on) then    ! if the simulation of the aerosol process is activated
+        ! on the first run, the particle concentration to their intial values
         if (aerosol_init_on==1) then
            aerosol_init_on=0
            do I = 1,nz
@@ -179,50 +181,53 @@ DO WHILE (time <= time_end)
            TEMP=theta-(g/Cp)*(h-h(1))
            ! calculate the pressure (Mair=P/(kT))
            air_pressure=barometric_law(p00, TEMP, h, nz)
-           !do I =1,nz-1
-           !   write(*,*) sum(particle_conc(I,:))
-           !   write(*,*) sum(particle_conc(I,:)*particle_mass)
-           !end do
 
-           ! dry deposition
-           DSWF = 6D2 * exp_coszen
-           call dry_dep_velocity(diameter,particle_density,TEMP(2),air_pressure(2),DSWF, & 
-                0.5_dp*(Ri_num(1)+Ri_num(2)),sqrt(ua(2)**2+va(2)**2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
-           ! write(*,*) v_dep
-           ! particle_conc(2,:) = particle_conc(2,:)*exp(-v_dep/h(2)*dt_aero)
-           ! particle_conc(1,:) = particle_conc(2,:)
-           !concentrations(2,20) = concentrations(2,20)*exp(-vd_SO2/h(2)*dt_aero)
-           !concentrations(1,20) = concentrations(2,20)
-           !concentrations(2,1) = concentrations(2,1)*exp(-vd_O3/h(2)*dt_aero)
-           !concentrations(1,1) = concentrations(2,1)
-           !concentrations(2,17) = concentrations(2,17)*exp(-vd_HNO3/h(2)*dt_aero)
-           !concentrations(1,17) = concentrations(2,17)
+           ! if the dry deposition is activated compute the losses for the second layer only
+           if (dry_deposition_on) then
+              ! set downward flux
+              DSWF = 6D2 * exp_coszen
+
+              ! estimate the velocities
+              call dry_dep_velocity(diameter,particle_density,TEMP(2),air_pressure(2),DSWF, & 
+                   0.5_dp*(Ri_num(1)+Ri_num(2)),sqrt(ua(2)**2+va(2)**2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
+
+              ! update the concentrations
+              particle_conc(2,:) = particle_conc(2,:)*exp(-v_dep/h(2)*dt_aero)
+              particle_conc(1,:) = particle_conc(2,:)
+              concentrations(2,20) = concentrations(2,20)*exp(-vd_SO2/h(2)*dt_aero)
+              concentrations(1,20) = concentrations(2,20)
+              concentrations(2,1) = concentrations(2,1)*exp(-vd_O3/h(2)*dt_aero)
+              concentrations(1,1) = concentrations(2,1)
+              concentrations(2,17) = concentrations(2,17)*exp(-vd_HNO3/h(2)*dt_aero)
+              concentrations(1,17) = concentrations(2,17)
+           end if
+        
            
            do I =1,nz-1 ! the first layer shouldn't be computed because it is equal to the second layer (but for plotting purposes, I will keep the first layer computation)
-              ! set the concentrations of Mair
-              ! M_air=(air_pressure(I)/(kb*TEMP(I)))/(NA*140000.0)
-              ! write(*,*) Mair
-              !pause
-              ! vapour concentration
+              ! vapour concentration conversion to SI units
               cond_vapour(1)=concentrations(I,21)*1.0D6 ! H2SO4
               cond_vapour(2)=concentrations(I,25)*1.0D6 ! ELVOC
 
               ! nucleation
-              call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
+              if (nucleation_on) then ! if the nucleation mode is selected
+                 call Nucleation(dt_aero,nucleation_coef,cond_vapour(1),particle_conc(I,:))
+              end if
+              
 
               ! coagulation
-              call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass)
+              if (coagulation_on) then ! if the coagulation mode is selected
+                 call Coagulation(dt_aero, particle_conc(I,:), diameter, TEMP(I),air_pressure(I),particle_mass)
+              end if
+              
 
               ! condensation ! why a difference arise in the particle number, particle mass
-              call Condensation(dt_aero, TEMP(I), air_pressure(I), mass_accomm, molecular_mass, &
-                   molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
-                   particle_conc(I,:), diameter, cond_vapour, cond_sink(:,I))
-
-              if (I==2) then
-                 layer1_particles=particle_conc(I,:)
-                 !write(*,*) layer1_particles
-                 !pause
+              if (condensation_on) then ! if the coondensation mode is selected
+                 call Condensation(dt_aero, TEMP(I), air_pressure(I), mass_accomm, molecular_mass, &
+                      molecular_volume, molar_mass, molecular_dia, particle_mass, particle_volume, &
+                      particle_conc(I,:), diameter, cond_vapour, cond_sink(:,I))
               end if
+
+              ! update the particle number and mass
               call PNandPM(particle_conc(I,:))
               PN_atm(I)=PN
               PM_atm(I)=PM
@@ -238,8 +243,13 @@ DO WHILE (time <= time_end)
 
   !particle_conc(nz,:)=0.0 ! no outflow
   ! particle_conc(1,:)=particle_conc(2,:) ! impose the null flux in the first layer
-   
-  ! update wind velocity and potential temperature
+
+
+  
+  !---------------------------------------------------------------------------------------
+  ! Meteo update and mixing
+  !--------------------------------------------------------------------------------------- 
+  ! update wind velocity, potential temperature and concentrations
   call update_meteo(model)
  
 
@@ -279,22 +289,19 @@ CONTAINS
 SUBROUTINE open_files()
   CHARACTER(255), PARAMETER :: outdir = 'output'
 
-  OPEN(11, FILE = TRIM(ADJUSTL(outdir))//'/time.dat'  , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(12, FILE = TRIM(ADJUSTL(outdir))//'/h.dat'     , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(13, FILE = TRIM(ADJUSTL(outdir))//'/ua.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(14, FILE = TRIM(ADJUSTL(outdir))//'/va.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(15, FILE = TRIM(ADJUSTL(outdir))//'/theta.dat' , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(16, FILE = TRIM(ADJUSTL(outdir))//'/kt.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(17, FILE = TRIM(ADJUSTL(outdir))//'/kmt.dat'   , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(18, FILE = TRIM(ADJUSTL(outdir))//'/kht.dat'   , STATUS = 'REPLACE', ACTION = 'WRITE')
-  OPEN(19, FILE = TRIM(ADJUSTL(outdir))//'/Ri.dat'    , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(11, FILE = TRIM(ADJUSTL(outdir))//'/time.dat'        , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(12, FILE = TRIM(ADJUSTL(outdir))//'/h.dat'           , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(13, FILE = TRIM(ADJUSTL(outdir))//'/ua.dat'          , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(14, FILE = TRIM(ADJUSTL(outdir))//'/va.dat'          , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(15, FILE = TRIM(ADJUSTL(outdir))//'/theta.dat'       , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(16, FILE = TRIM(ADJUSTL(outdir))//'/kt.dat'          , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(17, FILE = TRIM(ADJUSTL(outdir))//'/kmt.dat'         , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(18, FILE = TRIM(ADJUSTL(outdir))//'/kht.dat'         , STATUS = 'REPLACE', ACTION = 'WRITE')
+  OPEN(19, FILE = TRIM(ADJUSTL(outdir))//'/Ri.dat'          , STATUS = 'REPLACE', ACTION = 'WRITE')
 
   ! chemistry
-  !OPEN(20, FILE = TRIM(ADJUSTL(outdir))//'/concentration.dat',status='replace',action='write')
-  !OPEN(21, FILE = TRIM(ADJUSTL(outdir))//'/radiation.dat'    ,status='replace',action='write')
-  OPEN(22, FILE = TRIM(ADJUSTL(outdir))//'/emi_iso.dat'       ,status='replace',action='write')
-  OPEN(23, FILE = TRIM(ADJUSTL(outdir))//'/emi_alp.dat'       ,status='replace',action='write')
-
+  OPEN(22, FILE = TRIM(ADJUSTL(outdir))//'/emi_iso.dat'     ,status='replace',action='write')
+  OPEN(23, FILE = TRIM(ADJUSTL(outdir))//'/emi_alp.dat'     ,status='replace',action='write')
   OPEN(24, FILE = TRIM(ADJUSTL(outdir))//'/OH.dat'          ,status='replace',action='write')
   OPEN(25, FILE = TRIM(ADJUSTL(outdir))//'/HO2.dat'         ,status='replace',action='write')
   OPEN(26, FILE = TRIM(ADJUSTL(outdir))//'/H2SO4.dat'       ,status='replace',action='write')
@@ -304,12 +311,11 @@ SUBROUTINE open_files()
 
 
   ! aerosol
-  OPEN(20, FILE = TRIM(ADJUSTL(outdir))//'/particle.dat'       ,status='replace',action='write')
-  OPEN(21, FILE = TRIM(ADJUSTL(outdir))//'/diameters.dat'      ,status='replace',action='write')
-
-  OPEN(45, FILE = TRIM(ADJUSTL(outdir))//'/PN.dat'      ,status='replace',action='write')
-  OPEN(46, FILE = TRIM(ADJUSTL(outdir))//'/PM.dat'      ,status='replace',action='write')
-  OPEN(47, FILE = TRIM(ADJUSTL(outdir))//'/CS.dat'      ,status='replace',action='write')
+  OPEN(20, FILE = TRIM(ADJUSTL(outdir))//'/particle.dat'    ,status='replace',action='write')
+  OPEN(21, FILE = TRIM(ADJUSTL(outdir))//'/diameters.dat'   ,status='replace',action='write')
+  OPEN(45, FILE = TRIM(ADJUSTL(outdir))//'/PN.dat'          ,status='replace',action='write')
+  OPEN(46, FILE = TRIM(ADJUSTL(outdir))//'/PM.dat'          ,status='replace',action='write')
+  OPEN(47, FILE = TRIM(ADJUSTL(outdir))//'/CS.dat'          ,status='replace',action='write')
 END SUBROUTINE open_files
 
 
@@ -322,41 +328,42 @@ SUBROUTINE write_files(time)
   ! Get output format for arrays with nz layers
   WRITE(outfmt0, '(a, i3, a)') '(', nz, 'es25.16e3)'
   WRITE(outfmt1, '(a, i3, a)') '(', nz-1, 'es25.16e3)'
-  !WRITE(outfmt2, '(a, i3, a)') '(', neq, 'es25.16e3)'
   WRITE(outfmt3, '(a, i3, a)') '(', 1, 'es25.16e3)'
   WRITE(outfmt4, '(a, i3, a)') '(', nr_bins, 'es25.16e3)'
 
   ! Only save h one time at the beginning
   IF (time == time_start) THEN
-     WRITE(12, *) h
+     WRITE(12, outfmt0) h                           ! [m], layer's height
+     WRITE(21, outfmt4) diameter                    ! [m], particle diameter
   END IF
+  WRITE(11, '(f8.4)') time/(24*one_hour)            ! [day], time
 
-  WRITE(11, '(f8.4)') time/(24*one_hour)   ! [day], time
-  WRITE(13, outfmt0) ua                    ! [m s-1], u wind
-  WRITE(14, outfmt0) va                    ! [m s-1], v wind
-  WRITE(15, outfmt0) theta                 ! [K], potential temperature
-  WRITE(16, outfmt1) k_closure             ! [m^2 s^{-1}], k_closure K
-  WRITE(17, outfmt1) k_closure_m           ! [m^2 s^{-1}], k_closure K_m
-  WRITE(18, outfmt1) k_closure_h           ! [m^2 s^{-1}], k_closure K_h
-  WRITE(19, outfmt1) Ri_num                ! [], Richardson number Ri
-  !WRITE(20, outfmt2) Conc                  ! [m^{-3}], concentrations
-  !WRITE(21, outfmt3) exp_coszen            ! [], radiation
-  WRITE(22, outfmt3) tmpEmiIso             ! [], radiation
-  WRITE(23, outfmt3) tmpEmiAlp             ! [], radiation
-  WRITE(24, outfmt0) concentrations(:,3)   ! [cm^{-3}...hopfully], OH concentration
-  WRITE(25, outfmt0) concentrations(:,8)   ! [cm^{-3}...hopfully], HO2 concentration
-  WRITE(26, outfmt0) concentrations(:,21)  ! [cm^{-3}...hopfully], H2SO4 concentration
-  WRITE(27, outfmt0) concentrations(:,13)  ! [cm^{-3}...hopfully], isoprene concentration
-  WRITE(28, outfmt0) concentrations(:,23)  ! [cm^{-3}...hopfully], alpha-pinene concentration
-  WRITE(29, outfmt0) concentrations(:,25)  ! [cm^{-3}...hopfully], ELVOC concentration
-  WRITE(20, outfmt4) layer1_particles      ! [m^{-3}...hopfully], particle concentration
+  ! meteo
+  WRITE(13, outfmt0) ua                             ! [m s-1], u wind
+  WRITE(14, outfmt0) va                             ! [m s-1], v wind
+  WRITE(15, outfmt0) theta                          ! [K], potential temperature
+  WRITE(16, outfmt1) k_closure                      ! [m^2 s^{-1}], k_closure K
+  WRITE(17, outfmt1) k_closure_m                    ! [m^2 s^{-1}], k_closure K_m
+  WRITE(18, outfmt1) k_closure_h                    ! [m^2 s^{-1}], k_closure K_h
+  WRITE(19, outfmt1) Ri_num                         ! [], Richardson number Ri
 
-  WRITE(45, outfmt0) PN_atm                ! [m^{-3}...hopfully], particle concentration
-  WRITE(46, outfmt0) PM_atm                ! [m^{-3}...hopfully], particle concentration
-  if (time>time_start_aerosol) then
-     WRITE(21, outfmt4) diameter
-  end if
-  WRITE(47, outfmt0) cond_sink(1,:)        ! [m^{-3}...hopfully], particle concentration
+  ! chemistry
+  WRITE(22, outfmt3) tmpEmiIso                      ! [cm^3 s^{-1}], isoprene emission rate
+  WRITE(23, outfmt3) tmpEmiAlp                      ! [cm^3 s^{-1}], apha=pinene emission rate
+  WRITE(24, outfmt0) concentrations(:,3)            ! [cm^{-3}], OH concentration
+  WRITE(25, outfmt0) concentrations(:,8)            ! [cm^{-3}], HO2 concentration
+  WRITE(26, outfmt0) concentrations(:,21)           ! [cm^{-3}], H2SO4 concentration
+  WRITE(27, outfmt0) concentrations(:,13)           ! [cm^{-3}], isoprene concentration
+  WRITE(28, outfmt0) concentrations(:,23)           ! [cm^{-3}], alpha-pinene concentration
+  WRITE(29, outfmt0) concentrations(:,25)           ! [cm^{-3}], ELVOC concentration
+
+  ! aerosol
+  WRITE(20, outfmt4) particle_conc(2,:)             ! [m^{-3}], particle concentration
+  WRITE(45, outfmt0) PN_atm                         ! [m^{-3}], total particle concentration
+  WRITE(46, outfmt0) PM_atm                         ! [kg m^{-3}], total mass concentration
+  !if (time>time_start_aerosol) then
+  !end if
+  WRITE(47, outfmt0) cond_sink(1,:)                 ! [s^{-1}], H2SO4 condensation sink
   
 END SUBROUTINE write_files
 

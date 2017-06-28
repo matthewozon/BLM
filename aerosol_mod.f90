@@ -357,7 +357,7 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        rluSO2, rluO3, rluHNO3, rluisoprene, rluapinene, &
        rcSO2, rcO3, rcHNO3, rcisoprene, rcapinene
             
-       dens_air = Mair*pressure/(R*temperature)    ! Air density (kg/m^3)
+       dens_air = Mair*pressure/(R*temperature)     ! Air density (kg/m^3)
        dyn_visc = 1.8D-5*(temperature/298.)**0.85   ! dynamic viscosity of air (kg/(m*s))
        v_kinematic = dyn_visc/dens_air              ! kinematic viscosity of air (m^2/s)
 
@@ -368,8 +368,8 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        
        ! calculate the diffusion coefficients
        diffusivity = slip_correction*kb*temperature/(3D0*pi*dyn_visc*diameter)     ! Diffusivity for the different particle sizes m^2/s
-       zr=10D0                                      ! Reference height [m]
-       if (abs(Richards_nr10m)>1D-6) then ! for non neutral boundary layer
+       zr=10D0                                         ! Reference height [m]
+       if (abs(Richards_nr10m)>=Ri_tol) then           ! for non neutral boundary layer
           L_Ob=zr/Richards_nr10m                       ! Monin-Obukhov length scale
        end if
        
@@ -394,13 +394,20 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        vs=diameter**2*(particle_density-dens_air)*g*slip_correction/(18.0_dp*dyn_visc)
                
        ! Calculation of aerodynamic resistance for particles for:
-       if (Richards_nr10m>1D-6) then ! stable boundary layer (Ri>1D-6)
+       if (Richards_nr10m>Ri_tol) then ! stable boundary layer (Ri>1D-6)
           ra_part = (Pr*log(zr/z0)+beta/L_Ob*(zr-z0))/(vonk*u_friction)
-       else if (abs(Richards_nr10m)<=1D-6) then ! neutral boundary layer (abs(Ri)<1D-6
+       else if (abs(Richards_nr10m)<=Ri_tol) then ! neutral boundary layer (abs(Ri)<1D-6
           ra_part = Pr*log(zr/z0)/(vonk*u_friction)
        else ! unstable boundary layer Ri<-1D-6
-          ra_part = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
-               - log((sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)))/(vonk*u_friction)
+          !write(*,*) "Ri: ", Richards_nr10m , " L_Ob: ", L_Ob, " sqrt num: " ,1.0_dp-gam*zr/L_Ob, " sqrt den: ", 1.0_dp-gam*z0/L_Ob
+          !write(*,*) "and now: "
+          !write(*,*) (sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)
+          !write(*,*) (sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)
+          !write(*,*) "and... crash?"
+          
+          ra_part = Pr*log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)*(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)/((sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)))/(vonk*u_friction)
+          !ra_part = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
+          !     - log((sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)))/(vonk*u_friction)
        end if
 
        ! Schmidt number
@@ -425,19 +432,24 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
           write(*,*) "rb_part really small: ", minval(rb_part)
        end if
 
-       if (.false.) then
-          write(*,*) "coucou"
-          
+       !if (Richards_nr10m<1D-6) then
+       !   write(*,*) "the crash is coming!"
+       !end if
+       
        if (abs(minval(ra_part))<1D-6) then
           write(*,*) "ra_part really small: ", minval(ra_part)
        end if
+
+       !if (Richards_nr10m<1D-6) then
+       !   write(*,*) "the crash was coming!"
+       !end if
           
        if (abs(minval(ra_part+rb_part+ra_part*rb_part*vs))<1D-8) then
           write(*,*) "particle faster than the speed of light... ", minval(ra_part+rb_part+ra_part*rb_part*vs)
        end if
           
        ! Calculate the dry deposition velocity for particles:
-       v_dry_part = vs+ 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !vs + 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) ! 
+       v_dry_part = vs+ 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !vs + 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !
 
        !write(*,*) l_gas, " ",  diameter
        !write(*,*) diffusivity, "\n"
@@ -500,14 +512,14 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
       z_roughapinene = Diffusivityapinene/(vonk*u_friction)
 
       ! calculate ra
-      if (Richards_nr10m>1D-6) then ! stable boundary layer (Ri>1D-6)
+      if (Richards_nr10m>Ri_tol) then ! stable boundary layer (Ri>1D-6)
          ! ra_part = (Pr*log(zr/z0)+beta/L_Ob*(zr-z0))/(ka*u_friction)
          raSO2 = (Pr*log(zr/z_roughSO2)+beta/L_Ob*(zr-z_roughSO2))/(vonk*u_friction)
          raO3 = (Pr*log(zr/z_roughSO2)+beta/L_Ob*(zr-z_roughO3))/(vonk*u_friction)
          raHNO3 = (Pr*log(zr/z_roughHNO3)+beta/L_Ob*(zr-z_roughHNO3))/(vonk*u_friction)
          raisoprene = (Pr*log(zr/z_roughisoprene)+beta/L_Ob*(zr-z_roughisoprene))/(vonk*u_friction)
          raapinene = (Pr*log(zr/z_roughapinene)+beta/L_Ob*(zr-z_roughapinene))/(vonk*u_friction)
-      else if (abs(Richards_nr10m)<=1D-6) then ! neutral boundary layer (abs(Ri)<1D-6
+      else if (abs(Richards_nr10m)<=Ri_tol) then ! neutral boundary layer (abs(Ri)<1D-6
          ! ra_part = Pr*log(zr/z0)/(ka*u_friction)
          raSO2 = Pr*log(zr/z_roughSO2)/(vonk*u_friction)
          raO3 = Pr*log(zr/z_roughO3)/(vonk*u_friction)
@@ -608,7 +620,10 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        v_dry_HNO3 = 1D0/(raHNO3+rbHNO3+rcHNO3)
        !v_dry_isoprene = 1D0/(raisoprene+rbisoprene+rcisoprene)
        !v_dry_apinene = 1D0/(raapinene+rbapinene+rcapinene)
-    end if
+
+       !if (.false.) then
+       !   write(*,*) "coucou"
+       !end if
     
 
 END SUBROUTINE dry_dep_velocity

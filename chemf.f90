@@ -1,6 +1,7 @@
 MODULE chemf
 
   ! TO DO: implement the chemistry mixing for model 1 and 2
+  use parameters_mod
 
   IMPLICIT NONE
 
@@ -11,7 +12,7 @@ MODULE chemf
   ! 'chemistry_step' and variable 'neq'. Other names of all things
   ! are internal to this module.
 
-  INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(15,300)
+  ! INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(20,300)
   ! DLSODA is in f77 DOUBLE PRECISION, so here we try match that with this
 
   ! Module global variables
@@ -19,7 +20,12 @@ MODULE chemf
   INTEGER, PARAMETER :: nspec  = 25 ! number of chemical species
 
   REAL(dp), DIMENSION(nreact) :: k_rate  ! array of rate coefficients
-  REAL(dp) :: O2, N2, Mair, H2O, TEMP, Emi_iso, Emi_alp
+  REAL(dp) :: Mair_chem, TEMP !, O2, N2, H2O, Emi_iso, Emi_alp
+
+  ! H2O is the same as in parameter_mod, it can be used as a global variable, no need to pass it as an argument
+  ! O2 and N2 are already defined in param_mod, no need to declare them in this file (no interference)
+  ! Emi_iso and Emi_alp can be defined in param_mod, but their declaration must be deleted from the main
+  ! TEMP has no reason to be declared in this scope... but it can be tolerated
 
   ! stuff needed for DLSODA
   INTEGER, PARAMETER  :: neq   = nspec   ! number of differential equations
@@ -36,9 +42,9 @@ MODULE chemf
 
   CONTAINS
 
-    SUBROUTINE chemistry_step(Conc,time1,time2,O2_in,N2_in,M_in,H2O_in,Emi_iso_in,Emi_alp_in,CS_h2so4,CS_elvoc,TEMP_in,exp_coszen)
+    SUBROUTINE chemistry_step(Conc,time1,time2,O2_in,N2_in,M_in,Emi_iso_in,Emi_alp_in,CS_h2so4,CS_elvoc,TEMP_in,exp_coszen)
       REAL(dp), INTENT(inout) :: Conc(neq)
-      REAL(dp), INTENT(in)    :: time1, time2, O2_in, N2_in, M_in, H2O_in, TEMP_in, Emi_iso_in, Emi_alp_in, CS_h2so4, CS_elvoc
+      REAL(dp), INTENT(in)    :: time1, time2, O2_in, N2_in, M_in, TEMP_in, Emi_iso_in, Emi_alp_in, CS_h2so4, CS_elvoc !, H2O_in
       REAL(dp), INTENT(in)    :: exp_coszen
 
       ! for DLSODA:
@@ -56,8 +62,8 @@ MODULE chemf
 
       O2 = O2_in
       N2 = N2_in
-      Mair = M_in
-      H2O = H2O_in
+      Mair_chem = M_in
+      ! H2O = H2O_in
       TEMP =TEMP_in
 
 !      Emi_alp=Emi_alp_in
@@ -89,7 +95,7 @@ MODULE chemf
        k_rate(12) = 2.80D-12*EXP(300/TEMP)                                                                            ! CH3O2 + NO = HO2 + NO2 + CH2O + REST
        k_rate(13) = 1.00D-11                                                                                          ! RO2 + NO = HO2 + NO2 + CH2O + MVK
        k_rate(14) = 5.50D-12*EXP(125/TEMP)                                                                            ! OH + CH2O = HO2 + REST
-       k_rate(15) = ((2.2D-13*EXP(600/TEMP))+(1.9D-33*EXP(980/TEMP)*Mair))*(1+(1+1.4D-21*EXP(2200/TEMP)*H2O))         ! 2HO2 = H2O2 + O2
+       k_rate(15) = ((2.2D-13*EXP(600/TEMP))+(1.9D-33*EXP(980/TEMP)*Mair_chem))*(1+(1+1.4D-21*EXP(2200/TEMP)*H2O))         ! 2HO2 = H2O2 + O2
        k_rate(16) = 4.10D-13*EXP(750/TEMP)                                                                            ! CH3O2 + HO2 = REST
        k_rate(17) = 1.50D-11                                                                                          ! RO2 + HO2 = REST
        k_rate(18) = 3.50D-12*EXP(340/TEMP)                                                                            ! OH + NO2 = HNO3
@@ -98,10 +104,10 @@ MODULE chemf
        k_rate(21) = 2.90D-12*EXP(-160/TEMP)                                                                           ! OH + H2O2 = H2O + HO2
        k_rate(22) = 1.80D-11*EXP(110/TEMP)                                                                            ! NO + NO3 = NO2 + NO2
        k_rate(23) = 1.40D-13*EXP(-2470/TEMP)                                                                          ! NO2 + O3 = NO3 + O2
-       k_rate(24) = (0.35*(3.6D-30*(TEMP/300)**(-4.1)*Mair)*(1.9D-12*(TEMP/300)**0.2)) &
-                  / ((3.6D-30*(TEMP/300)**(-4.1)*Mair)+(1.9D-12*(TEMP/300)**0.2))                                   ! NO2 + NO3 = N2O5
-       k_rate(25) = (0.35*(1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair)*(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP))) &
-                  /((1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair)+(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP)))    ! N2O5 = NO2 + NO3
+       k_rate(24) = (0.35*(3.6D-30*(TEMP/300)**(-4.1)*Mair_chem)*(1.9D-12*(TEMP/300)**0.2)) &
+                  / ((3.6D-30*(TEMP/300)**(-4.1)*Mair_chem)+(1.9D-12*(TEMP/300)**0.2))                                   ! NO2 + NO3 = N2O5
+       k_rate(25) = (0.35*(1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair_chem)*(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP))) &
+                  /((1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair_chem)+(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP)))    ! N2O5 = NO2 + NO3
        k_rate(26) = 2.50D-22                                                                                          ! N2O5 + H2O = HNO3 + HNO3
        k_rate(27) = 1.80D-39                                                                                          ! N2O5 + H2O + H2O = HNO3 + HNO3 + H2O
        k_rate(28) = 2.03D-16*(TEMP/300)**4.57*EXP(693/TEMP)                                                           ! HO2 + O3 = OH + O2 + O2

@@ -33,10 +33,6 @@ PUBLIC :: meteorology_init, surface_values, update_meteo  ! functions
 public :: concentrations ! WARNING: could be part of the chemistry model?
 public :: particle_conc
 
-! Some constants
-REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
-! REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
-
 ! Meteorological variables
 REAL(dp), DIMENSION(nz) :: ua, va, theta                      ! wind veocity components, potential temperature
 REAL(dp), DIMENSION(nz) :: u_new, v_new, theta_new            ! temp var for time update 
@@ -53,7 +49,7 @@ real(dp), dimension(neq):: dcdz1, dcdz2
 real(dp), dimension(nz,nr_bins):: particle_conc, particle_conc_new
 real(dp), dimension(nr_bins):: dpdz1, dpdz2
 
-! For convenient
+! For convenience
 INTEGER :: I, J  ! used for loop
 integer :: model
 

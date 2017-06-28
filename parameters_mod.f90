@@ -17,7 +17,7 @@ PUBLIC
 
 ! Declare numbers in 64bit floating point
 ! http://en.wikipedia.org/wiki/Double_precision_floating-point_format
-INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(15,300)
+INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(15,300) ! 15 is enough for every computations but the dry deposition
 
 REAL(dp), PARAMETER :: PI   = 2*ASIN(1.0_dp)     ! [-], the constant pi
 REAL(dp), PARAMETER :: g    = 9.81_dp            ! [m s-2], gravitational acceleration
@@ -38,7 +38,7 @@ REAL(dp), PARAMETER :: longitude = longitude_deg * PI/180.0_dp  ! [rad]
 REAL(dp), PARAMETER :: fcor = 2*Omega*SIN(latitude)  ! Coriolis parameter
 
 ! chemistry
-real(dp):: O2, N2 ![cm^{-3}] concentrations
+real(dp):: O2, N2, Emi_iso, Emi_alp ![cm^{-3}] concentrations
 real(dp), parameter:: H2O=1.0d16                     ! [cm^{-3}] water vapor concentration
 real(dp), parameter:: Dm=0.0538*0.001                ! [kg cm^{-2}] 
 real(dp), parameter:: emi_fac=100.0*10.0**(-12)/3.6  ! [kg kg^{-1} s^{-1}]
@@ -59,5 +59,7 @@ real(dp), parameter:: p00=1.01325d5      ! [Pa]
 
 ! aerosol and mixing
 REAL(dp), PARAMETER :: vonk = 0.4_dp      ! von Karman constant, dimensionless
+real(dp), parameter :: Ri_tol = 1D-4      ! if set smaller, the computation will crash unless real kind is changed
+REAL(dp), PARAMETER :: lambda = 300.0_dp  ! maximum mixing length, meters
 
 END MODULE parameters_mod
