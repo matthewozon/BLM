@@ -44,8 +44,8 @@ logical, parameter:: chem_on=.true.                 ! turn ON/OFF the chemistry 
 logical, parameter:: aerosol_on=.true.              ! turn ON/OFF the aerosol model
 logical, parameter:: nucleation_on=.true.           ! if aerosol is ON, it turns ON/OFF the nucleation process
 logical, parameter:: condensation_on=.true.         ! if aerosol is ON, it turns ON/OFF the condensation process
-logical, parameter:: coagulation_on=.false.          ! if aerosol is ON, it turns ON/OFF the coagulation process
-logical, parameter:: dry_deposition_on=.false.       ! if aerosol is ON, it turns ON/OFF the loss by dry deposition
+logical, parameter:: coagulation_on=.true.          ! if aerosol is ON, it turns ON/OFF the coagulation process
+logical, parameter:: dry_deposition_on=.true.       ! if aerosol is ON, it turns ON/OFF the loss by dry deposition
 
 ! TO DO: move those variables where they belong
 real(dp):: exp_coszen, M_air ! TO DO: M_air is really similar to Mair... change the name Emi_iso and Emi_alp will be part of param_mod and must be removed from this scope Emi_iso, Emi_alp,
@@ -78,6 +78,10 @@ do I = 1,nz
    PN_atm(I)=PN
    PM_atm(I)=PM
 end do
+v_dep   = 0.0_dp
+vd_SO2  = 0.0_dp
+vd_O3   = 0.0_dp
+vd_HNO3 = 0.0_dp
 
 !layer1_particles=particle_conc(1,:)
 
@@ -152,7 +156,6 @@ DO WHILE (time <= time_end)
         else ! only for plotting use when the chemistry is OFF
            call emission_rate_alpha(TEMP(2))
            call emission_rate_isoprene(TEMP(2),exp_coszen)
-           write(*,*) Emi_iso, " ", Emi_alp
            tmpEmiIso = Emi_iso
            tmpEmiAlp = Emi_alp
         end if ! chemistry ON/OFF
@@ -188,17 +191,19 @@ DO WHILE (time <= time_end)
               DSWF = 6D2 * exp_coszen
 
               ! estimate the velocities
+              ! call dry_dep_velocity(diameter,particle_density,TEMP(2),air_pressure(2),DSWF, & 
+              !     0.5_dp*(Ri_num(1)+Ri_num(2)),sqrt(ua(2)**2+va(2)**2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
               call dry_dep_velocity(diameter,particle_density,TEMP(2),air_pressure(2),DSWF, & 
-                   0.5_dp*(Ri_num(1)+Ri_num(2)),sqrt(ua(2)**2+va(2)**2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
+                   Ri_num(2),ua(2), mass_accomm, v_dep, vd_SO2, vd_O3, vd_HNO3)
 
               ! update the concentrations
-              particle_conc(2,:) = particle_conc(2,:)*exp(-v_dep/h(2)*dt_aero)
+              particle_conc(2,:) = particle_conc(2,:)*exp(-v_dep/(h(2)-h(1))*dt_aero)
               particle_conc(1,:) = particle_conc(2,:)
-              concentrations(2,20) = concentrations(2,20)*exp(-vd_SO2/h(2)*dt_aero)
+              concentrations(2,20) = concentrations(2,20)*exp(-vd_SO2/(h(2)-h(1))*dt_aero)
               concentrations(1,20) = concentrations(2,20)
-              concentrations(2,1) = concentrations(2,1)*exp(-vd_O3/h(2)*dt_aero)
+              concentrations(2,1) = concentrations(2,1)*exp(-vd_O3/(h(2)-h(1))*dt_aero)
               concentrations(1,1) = concentrations(2,1)
-              concentrations(2,17) = concentrations(2,17)*exp(-vd_HNO3/h(2)*dt_aero)
+              concentrations(2,17) = concentrations(2,17)*exp(-vd_HNO3/(h(2)-h(1))*dt_aero)
               concentrations(1,17) = concentrations(2,17)
            end if
         
@@ -308,7 +313,7 @@ SUBROUTINE open_files()
   OPEN(27, FILE = TRIM(ADJUSTL(outdir))//'/isoprene.dat'    ,status='replace',action='write')
   OPEN(28, FILE = TRIM(ADJUSTL(outdir))//'/alpha.dat'       ,status='replace',action='write')
   OPEN(29, FILE = TRIM(ADJUSTL(outdir))//'/ELVOC.dat'       ,status='replace',action='write')
-
+  OPEN(48, FILE = TRIM(ADJUSTL(outdir))//'/HNO3.dat'        ,status='replace',action='write')
 
   ! aerosol
   OPEN(20, FILE = TRIM(ADJUSTL(outdir))//'/particle.dat'    ,status='replace',action='write')
@@ -316,6 +321,10 @@ SUBROUTINE open_files()
   OPEN(45, FILE = TRIM(ADJUSTL(outdir))//'/PN.dat'          ,status='replace',action='write')
   OPEN(46, FILE = TRIM(ADJUSTL(outdir))//'/PM.dat'          ,status='replace',action='write')
   OPEN(47, FILE = TRIM(ADJUSTL(outdir))//'/CS.dat'          ,status='replace',action='write')
+  OPEN(49, FILE = TRIM(ADJUSTL(outdir))//'/vdep.dat'        ,status='replace',action='write')
+  OPEN(50, FILE = TRIM(ADJUSTL(outdir))//'/vdSO2.dat'       ,status='replace',action='write')
+  OPEN(51, FILE = TRIM(ADJUSTL(outdir))//'/vdO3.dat'        ,status='replace',action='write')
+  OPEN(52, FILE = TRIM(ADJUSTL(outdir))//'/vdHNO3.dat'      ,status='replace',action='write')
 END SUBROUTINE open_files
 
 
@@ -356,6 +365,7 @@ SUBROUTINE write_files(time)
   WRITE(27, outfmt0) concentrations(:,13)           ! [cm^{-3}], isoprene concentration
   WRITE(28, outfmt0) concentrations(:,23)           ! [cm^{-3}], alpha-pinene concentration
   WRITE(29, outfmt0) concentrations(:,25)           ! [cm^{-3}], ELVOC concentration
+  WRITE(48, outfmt0) concentrations(:,17)           ! [cm^{-3}], HNO3 concentration
 
   ! aerosol
   WRITE(20, outfmt4) particle_conc(2,:)             ! [m^{-3}], particle concentration
@@ -364,6 +374,10 @@ SUBROUTINE write_files(time)
   !if (time>time_start_aerosol) then
   !end if
   WRITE(47, outfmt0) cond_sink(1,:)                 ! [s^{-1}], H2SO4 condensation sink
+  WRITE(49, outfmt4) v_dep                          ! [m s^{-1}], deposition velocity of the particles
+  WRITE(50, outfmt3) vd_SO2                         ! [m s^{-1}], deposition velocity of SO2
+  WRITE(51, outfmt3) vd_O3                          ! [m s^{-1}], deposition velocity of O3
+  WRITE(52, outfmt3) vd_HNO3                        ! [m s^{-1}], deposition velocity of HNO3
   
 END SUBROUTINE write_files
 
@@ -394,6 +408,11 @@ SUBROUTINE close_files()
   CLOSE(45)
   CLOSE(46)
   CLOSE(47)
+  CLOSE(48)
+  CLOSE(49)
+  CLOSE(50)
+  CLOSE(51)
+  CLOSE(52)
 END SUBROUTINE close_files
 
   !-------------------------------------------------------

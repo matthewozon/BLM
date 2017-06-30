@@ -95,7 +95,7 @@ MODULE chemf
        k_rate(12) = 2.80D-12*EXP(300/TEMP)                                                                            ! CH3O2 + NO = HO2 + NO2 + CH2O + REST
        k_rate(13) = 1.00D-11                                                                                          ! RO2 + NO = HO2 + NO2 + CH2O + MVK
        k_rate(14) = 5.50D-12*EXP(125/TEMP)                                                                            ! OH + CH2O = HO2 + REST
-       k_rate(15) = ((2.2D-13*EXP(600/TEMP))+(1.9D-33*EXP(980/TEMP)*Mair_chem))*(1+(1+1.4D-21*EXP(2200/TEMP)*H2O))         ! 2HO2 = H2O2 + O2
+       k_rate(15) = ((2.2D-13*EXP(600/TEMP))+(1.9D-33*EXP(980/TEMP)*Mair_chem))*(1+(1+1.4D-21*EXP(2200/TEMP)*H2O))    ! 2HO2 = H2O2 + O2
        k_rate(16) = 4.10D-13*EXP(750/TEMP)                                                                            ! CH3O2 + HO2 = REST
        k_rate(17) = 1.50D-11                                                                                          ! RO2 + HO2 = REST
        k_rate(18) = 3.50D-12*EXP(340/TEMP)                                                                            ! OH + NO2 = HNO3
@@ -105,20 +105,20 @@ MODULE chemf
        k_rate(22) = 1.80D-11*EXP(110/TEMP)                                                                            ! NO + NO3 = NO2 + NO2
        k_rate(23) = 1.40D-13*EXP(-2470/TEMP)                                                                          ! NO2 + O3 = NO3 + O2
        k_rate(24) = (0.35*(3.6D-30*(TEMP/300)**(-4.1)*Mair_chem)*(1.9D-12*(TEMP/300)**0.2)) &
-                  / ((3.6D-30*(TEMP/300)**(-4.1)*Mair_chem)+(1.9D-12*(TEMP/300)**0.2))                                   ! NO2 + NO3 = N2O5
+                  / ((3.6D-30*(TEMP/300)**(-4.1)*Mair_chem)+(1.9D-12*(TEMP/300)**0.2))                                ! NO2 + NO3 = N2O5
        k_rate(25) = (0.35*(1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair_chem)*(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP))) &
-                  /((1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair_chem)+(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP)))    ! N2O5 = NO2 + NO3
+                  /((1.3D-3*(TEMP/300)**(-3.5)*EXP(-11000/TEMP)*Mair_chem)+(9.7D14*(TEMP/300)**0.1*EXP(-11080/TEMP))) ! N2O5 = NO2 + NO3
        k_rate(26) = 2.50D-22                                                                                          ! N2O5 + H2O = HNO3 + HNO3
        k_rate(27) = 1.80D-39                                                                                          ! N2O5 + H2O + H2O = HNO3 + HNO3 + H2O
        k_rate(28) = 2.03D-16*(TEMP/300)**4.57*EXP(693/TEMP)                                                           ! HO2 + O3 = OH + O2 + O2
        k_rate(29) = 1.5D-12                                                                                           ! SO2 + OH = H2SO4
-       k_rate(30) = CS_h2so4 !0.001                                                                                       ! CS for H2SO4 and HNO3
-       k_rate(31) = Emi_alp_in                                                                                       ! Emission rate of alpha-pinene
-       k_rate(32) = Emi_iso_in                                                                                       ! Emission rate of isoprene
+       k_rate(30) = CS_h2so4 !0.001                                                                                   ! CS for H2SO4 and HNO3
+       k_rate(31) = Emi_alp_in                                                                                        ! Emission rate of alpha-pinene
+       k_rate(32) = Emi_iso_in                                                                                        ! Emission rate of isoprene
        k_rate(33) = 1.2D-11*EXP(440/TEMP)                                                                             ! alp-pinene + OH
        k_rate(34) = 6.3D-16*EXP(-580/TEMP)                                                                            ! alp-pinene + O3
        k_rate(35) = 1.03D-14*EXP(-1995/TEMP)                                                                          ! isoprene + O3
-       k_rate(36) = CS_elvoc !0.001                                                                                    ! CS for ELVOC
+       k_rate(36) = CS_elvoc !0.001                                                                                   ! CS for ELVOC
 
     END SUBROUTINE calculate_k
 

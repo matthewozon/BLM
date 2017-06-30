@@ -70,6 +70,7 @@ conc     = loadData("output/particle.dat",25)
 pn       = loadData("output/PN.dat",25)
 pm       = loadData("output/PM.dat",25)
 cs       = loadData("output/CS.dat",25)
+hno3     = loadData("output/HNO3.dat",25)
 h        = loadData("output/h.dat",25)
 
 # squeeze the 1D data
@@ -83,7 +84,10 @@ volume=(pi/6.0)*diameter.^3
 # size distribution at the beginning and at the end of the simulation
 figure(201)
 loglog(10.0^9*diameter[1:end-1],10.0^(-6)*conc[1:end-1,1])
-loglog(10.0^9*diameter[1:end-1],10.0^(-6)*conc[1:end-1,end]) 
+loglog(10.0^9*diameter[1:end-1],10.0^(-6)*conc[1:end-1,end])
+ylim(1.0,1000000.0)
+grid(true,which="major",ls="-")
+grid(true,which="minor",ls="-",alpha=0.5)
 title("size distribution")
 xlabel("diameter [nm]")
 ylabel("concentration [cm\$^{-3}\$]")
@@ -185,6 +189,19 @@ cbar[:set_label]("frequency [Hz]")
 cbar[:formatter][:set_powerlimits]((-1,2))
 cbar[:update_ticks]()
 s = @sprintf "condensation sink (%1.2e,%1.2e) Hz" mini maxi
+title(s)
+xlabel("time [d]")
+ylabel("height [m]")
+
+
+
+# HNO3 concentration (mapping time and height)
+imshowData(211,t,h,hno3,_norm=:Normalize,_vmin=minimum(hno3),_vmax=maximum(hno3),_edgecolors="face")
+cbar=colorbar()
+cbar[:set_label]("concentration [molec cm\$^{-3}\$]")
+cbar[:formatter][:set_powerlimits]((-1,2))
+cbar[:update_ticks]()
+s = @sprintf "HNO3 (%1.2e,%1.2e) cm\$^{-3}\$" minimum(oh) maximum(oh)
 title(s)
 xlabel("time [d]")
 ylabel("height [m]")

@@ -99,7 +99,7 @@ cbar=colorbar()
 cbar[:set_label]("concentration [molec cm\$^{-3}\$]")
 cbar[:formatter][:set_powerlimits]((-1,2))
 cbar[:update_ticks]()
-s = @sprintf "OH (%1.1e,%1.1e) cm\$^{-3}\$" minimum(oh) maximum(oh)
+s = @sprintf "OH (%1.2e,%1.2e) cm\$^{-3}\$" minimum(oh) maximum(oh)
 title(s)
 xlabel("time [d]")
 ylabel("height [m]")
@@ -166,41 +166,69 @@ xlabel("time [d]")
 ylabel("height [m]")
 
 
+
+
+
+
+
+
+
+
+
 # OH concentration (time evolution at 10m and 50m high)
-figure(108)
-ax=axes()
+ax=subplot(221)
 ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
 s = @sprintf "OH (%1.2e,%1.2e) cm\$^{-3}\$" minimum(oh) maximum(oh)
 title(s)
-plot(t,squeeze(oh[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(oh[6,:],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(oh[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(oh[6,72:end],1), linewidth=2,marker="o")
 xlabel("time [d]")
-ylabel("oh [molec cm\$^{-3}\$]")
+ylabel("concentration [molec cm\$^{-3}\$]")
 legend(["10 m","50 m"])
 
 # HO2 concentration (time evolution at 10m and 50m high)
-figure(109)
-ax=axes()
+ax=subplot(222)
 ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
 s = @sprintf "HO2 (%1.2e,%1.2e) cm\$^{-3}\$" minimum(ho2) maximum(ho2)
 title(s)
-plot(t,squeeze(ho2[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(ho2[6,:],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(ho2[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(ho2[6,72:end],1), linewidth=2,marker="o")
 xlabel("time [d]")
-ylabel("oh [molec cm\$^{-3}\$]")
+ylabel("concentration [molec cm\$^{-3}\$]")
 legend(["10 m","50 m"])
 
 # H2SO4 concentration (time evolution at 10m and 50m high)
-figure(110)
-ax=axes()
+ax=subplot(223)
 ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
 s = @sprintf "H2SO4 (%1.2e,%1.2e) cm\$^{-3}\$" minimum(h2so4) maximum(h2so4)
 title(s)
-plot(t,squeeze(h2so4[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(h2so4[6,:],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(h2so4[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(h2so4[6,72:end],1), linewidth=2,marker="o")
 xlabel("time [d]")
-ylabel("oh [molec cm\$^{-3}\$]")
+ylabel("concentration [molec cm\$^{-3}\$]")
 legend(["10 m","50 m"])
+
+
+# ELVOC concentration (time evolution at 10m and 50m high)
+ax=subplot(224)
+ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
+s = @sprintf "ELVOC (%1.2e,%1.2e) cm\$^{-3}\$" minimum(elvoc) maximum(elvoc)
+title(s)
+plot(t[72:end],squeeze(elvoc[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(elvoc[6,72:end],1), linewidth=2,marker="o")
+xlabel("time [d]")
+ylabel("concentration [molec cm\$^{-3}\$]")
+legend(["10 m","50 m"])
+
+
+
+
+
+
+
+
+
+
 
 # isoprene concentration (time evolution at 10m and 50m high)
 figure(111)
@@ -208,11 +236,12 @@ ax=axes()
 ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
 s = @sprintf "isoprene (%1.2e,%1.2e) cm\$^{-3}\$" minimum(isoprene) maximum(isoprene)
 title(s)
-plot(t,squeeze(isoprene[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(isoprene[6,:],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(isoprene[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(isoprene[6,72:end],1), linewidth=2,marker="o")
 xlabel("time [d]")
-ylabel("isoprene [molec cm\$^{-3}\$]")
+ylabel("concentration [molec cm\$^{-3}\$]")
 legend(["10 m","50 m"])
+
 
 # alpha-pinene concentration (time evolution at 10m and 50m high)
 figure(112)
@@ -220,20 +249,64 @@ ax=axes()
 ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
 s = @sprintf "\$\\alpha\$-pinene (%1.2e,%1.2e) cm\$^{-3}\$" minimum(alphap) maximum(alphap)
 title(s)
-plot(t,squeeze(alphap[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(alphap[6,:],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(alphap[2,72:end],1), linewidth=2,marker="o")
+plot(t[72:end],squeeze(alphap[6,72:end],1), linewidth=2,marker="o")
 xlabel("time [d]")
-ylabel("\$\\alpha\$-pinene [molec cm\$^{-3}\$]")
+ylabel("concentration [molec cm\$^{-3}\$]")
 legend(["10 m","50 m"])
 
-# ELVOC concentration (time evolution at 10m and 50m high)
-figure(113)
-ax=axes()
-ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
-s = @sprintf "ELVOC (%1.2e,%1.2e) cm\$^{-3}\$" minimum(elvoc) maximum(elvoc)
-title(s)
-plot(t,squeeze(elvoc[2,:],1), linewidth=2,marker="o")
-plot(t,squeeze(elvoc[6,:],1), linewidth=2,marker="o")
-xlabel("time [d]")
-ylabel("ELVOC [molec cm\$^{-3}\$]")
-legend(["10 m","50 m"])
+
+
+
+
+if false
+    # OH concentration (time evolution at 10m and 50m high)
+    figure(108)
+    ax=axes()
+    ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
+    s = @sprintf "OH (%1.2e,%1.2e) cm\$^{-3}\$" minimum(oh) maximum(oh)
+    title(s)
+    plot(t,squeeze(oh[2,:],1), linewidth=2,marker="o")
+    plot(t,squeeze(oh[6,:],1), linewidth=2,marker="o")
+    xlabel("time [d]")
+    ylabel("oh [molec cm\$^{-3}\$]")
+    legend(["10 m","50 m"])
+
+    # HO2 concentration (time evolution at 10m and 50m high)
+    figure(109)
+    ax=axes()
+    ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
+    s = @sprintf "HO2 (%1.2e,%1.2e) cm\$^{-3}\$" minimum(ho2) maximum(ho2)
+    title(s)
+    plot(t,squeeze(ho2[2,:],1), linewidth=2,marker="o")
+    plot(t,squeeze(ho2[6,:],1), linewidth=2,marker="o")
+    xlabel("time [d]")
+    ylabel("oh [molec cm\$^{-3}\$]")
+    legend(["10 m","50 m"])
+
+    # H2SO4 concentration (time evolution at 10m and 50m high)
+    figure(110)
+    ax=axes()
+    ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
+    s = @sprintf "H2SO4 (%1.2e,%1.2e) cm\$^{-3}\$" minimum(h2so4) maximum(h2so4)
+    title(s)
+    plot(t,squeeze(h2so4[2,:],1), linewidth=2,marker="o")
+    plot(t,squeeze(h2so4[6,:],1), linewidth=2,marker="o")
+    xlabel("time [d]")
+    ylabel("oh [molec cm\$^{-3}\$]")
+    legend(["10 m","50 m"])
+
+
+    # ELVOC concentration (time evolution at 10m and 50m high)
+    figure(113)
+    ax=axes()
+    ax[:ticklabel_format](axis="y",style="sci",scilimits=(2,2))
+    s = @sprintf "ELVOC (%1.2e,%1.2e) cm\$^{-3}\$" minimum(elvoc) maximum(elvoc)
+    title(s)
+    plot(t,squeeze(elvoc[2,:],1), linewidth=2,marker="o")
+    plot(t,squeeze(elvoc[6,:],1), linewidth=2,marker="o")
+    xlabel("time [d]")
+    ylabel("ELVOC [molec cm\$^{-3}\$]")
+    legend(["10 m","50 m"])
+
+end

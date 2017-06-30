@@ -320,8 +320,21 @@ SUBROUTINE Coagulation(timestep, particle_conc_coag, diameter, &
     !particle_conc_coag=particle_conc_new
 END SUBROUTINE Coagulation
   
+
+
+
+
+
+
+
+
+
+
+
+
+
 SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF, & 
-   Richards_nr10m,wind_speed10m, mass_accomm, v_dry_part, v_dry_SO2, v_dry_O3, v_dry_HNO3) !, v_dry_isoprene, v_dry_apinene) ! Add more variables if you need it
+   Richards_nr10m,wind_speed10m, mass_accomm, v_dry_part, v_dry_SO2, v_dry_O3, v_dry_HNO3)!, v_dry_isoprene, v_dry_apinene) ! Add more variables if you need it
    
       REAL(dp), DIMENSION(nr_bins), INTENT(IN) :: diameter
       
@@ -357,7 +370,7 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        rluSO2, rluO3, rluHNO3, rluisoprene, rluapinene, &
        rcSO2, rcO3, rcHNO3, rcisoprene, rcapinene
             
-       dens_air = Mair*pressure/(R*temperature)     ! Air density (kg/m^3)
+       dens_air = Mair*pressure/(R*temperature)    ! Air density (kg/m^3)
        dyn_visc = 1.8D-5*(temperature/298.)**0.85   ! dynamic viscosity of air (kg/(m*s))
        v_kinematic = dyn_visc/dens_air              ! kinematic viscosity of air (m^2/s)
 
@@ -368,8 +381,8 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        
        ! calculate the diffusion coefficients
        diffusivity = slip_correction*kb*temperature/(3D0*pi*dyn_visc*diameter)     ! Diffusivity for the different particle sizes m^2/s
-       zr=10D0                                         ! Reference height [m]
-       if (abs(Richards_nr10m)>=Ri_tol) then           ! for non neutral boundary layer
+       zr=10D0                                      ! Reference height [m]
+       if (abs(Richards_nr10m)>0.5_dp*Ri_tol) then ! for non neutral boundary layer
           L_Ob=zr/Richards_nr10m                       ! Monin-Obukhov length scale
        end if
        
@@ -385,9 +398,9 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        a_landuse = 1D0
        j_landuse = 0.56D0
     
-       Pr = 0.95D0        ! Turbulent Prandtl number (when vonk = 0.4 (Hogstrom, 1988))
-       beta = 7.8D0       ! When vonk = 0.4 (Hogstrom, 1988)
-       gam = 11.6D0       ! When vonk = 0.4 (Hogstrom, 1988)
+       Pr = 0.95D0        ! Turbulent Prandtl number (when ka = 0.4 (Hogstrom, 1988))
+       beta = 7.8D0       ! When ka = 0.4 (Hogstrom, 1988)
+       gam = 11.6D0       ! When ka = 0.4 (Hogstrom, 1988)
 
 
        ! Calculate the particle sedimentation velocity:
@@ -398,16 +411,12 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
           ra_part = (Pr*log(zr/z0)+beta/L_Ob*(zr-z0))/(vonk*u_friction)
        else if (abs(Richards_nr10m)<=Ri_tol) then ! neutral boundary layer (abs(Ri)<1D-6
           ra_part = Pr*log(zr/z0)/(vonk*u_friction)
-       else ! unstable boundary layer Ri<-1D-6
-          !write(*,*) "Ri: ", Richards_nr10m , " L_Ob: ", L_Ob, " sqrt num: " ,1.0_dp-gam*zr/L_Ob, " sqrt den: ", 1.0_dp-gam*z0/L_Ob
-          !write(*,*) "and now: "
-          !write(*,*) (sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)
-          !write(*,*) (sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)
-          !write(*,*) "and... crash?"
-          
+       else ! unstable boundary layer Ri<-Ri_tol
+          ! write(*,*) "numerator: ", (sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)*(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)
+          ! write(*,*) "denominator: ", (sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)
           ra_part = Pr*log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)*(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)/((sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp) * (sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)))/(vonk*u_friction)
           !ra_part = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
-          !     - log((sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)))/(vonk*u_friction)
+          !     - log((sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)))/(ka*u_friction)
        end if
 
        ! Schmidt number
@@ -418,38 +427,13 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        
        ! proportion of sticking particle
        R1 = exp(-sqrt(St_part))
+
        
        ! Calculate the quasi-laminar resistance (rb) for particles:
        rb_part = 1.0_dp/(3.0_dp*u_friction*R1*( (Sc_part**(-0.56)) + ((St_part/(mass_accomm+St_part))**2) + (0.5*(diameter/r_coll)**2) ))
-
-       ! untill this point, no exception occur
-
-       if (maxval(vs)>3D8) then
-          write(*,*) "vs infinity, ", maxval(vs)
-       end if
-
-       if (abs(minval(rb_part))<1D-6) then
-          write(*,*) "rb_part really small: ", minval(rb_part)
-       end if
-
-       !if (Richards_nr10m<1D-6) then
-       !   write(*,*) "the crash is coming!"
-       !end if
        
-       if (abs(minval(ra_part))<1D-6) then
-          write(*,*) "ra_part really small: ", minval(ra_part)
-       end if
-
-       !if (Richards_nr10m<1D-6) then
-       !   write(*,*) "the crash was coming!"
-       !end if
-          
-       if (abs(minval(ra_part+rb_part+ra_part*rb_part*vs))<1D-8) then
-          write(*,*) "particle faster than the speed of light... ", minval(ra_part+rb_part+ra_part*rb_part*vs)
-       end if
-          
        ! Calculate the dry deposition velocity for particles:
-       v_dry_part = vs+ 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !vs + 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !
+       v_dry_part = vs+ 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) !vs + 1.0_dp/(ra_part+rb_part+ra_part*rb_part*vs) ! 
 
        !write(*,*) l_gas, " ",  diameter
        !write(*,*) diffusivity, "\n"
@@ -491,15 +475,15 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
       D_ratio_SO2 = 1.89D0
       D_ratio_O3 = 1.63D0
       D_ratio_HNO3 = 1.87D0
-      D_ratio_isoprene = 2.7D0 ! Estimated 
-      D_ratio_apinene = 4D0  ! Estimated 
+      !D_ratio_isoprene = 2.7D0 ! Estimated 
+      !D_ratio_apinene = 4D0  ! Estimated 
       
       
       DiffusivitySO2 = DiffusivityH2O/D_ratio_SO2    ! Diffusivity of SO2 (m^2/s)
       DiffusivityO3 = DiffusivityH2O/D_ratio_O3      ! Diffusivity of O3 (m^2/s)
       DiffusivityHNO3 = DiffusivityH2O/D_ratio_HNO3  ! Diffusivity of HNO3 (m^2/s)
-      Diffusivityisoprene = DiffusivityH2O/D_ratio_isoprene  ! Diffusivity of isoprene (m^2/s)
-      Diffusivityapinene = DiffusivityH2O/D_ratio_apinene  ! Diffusivity of apinene (m^2/s)
+      !Diffusivityisoprene = DiffusivityH2O/D_ratio_isoprene  ! Diffusivity of isoprene (m^2/s)
+      !Diffusivityapinene = DiffusivityH2O/D_ratio_apinene  ! Diffusivity of apinene (m^2/s)
       
       !!! Calculate the aerodynamic resistance for O3, SO2, HNO3, isoprene & a-pinene (ra) in similar way as
       ! for particles:
@@ -508,25 +492,25 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
       z_roughSO2 = DiffusivitySO2/(vonk*u_friction)
       z_roughO3 = DiffusivityO3/(vonk*u_friction)
       z_roughHNO3 = DiffusivityHNO3/(vonk*u_friction)
-      z_roughisoprene = Diffusivityisoprene/(vonk*u_friction)
-      z_roughapinene = Diffusivityapinene/(vonk*u_friction)
+      !z_roughisoprene = Diffusivityisoprene/(ka*u_friction)
+      !z_roughapinene = Diffusivityapinene/(ka*u_friction)
 
       ! calculate ra
       if (Richards_nr10m>Ri_tol) then ! stable boundary layer (Ri>1D-6)
          ! ra_part = (Pr*log(zr/z0)+beta/L_Ob*(zr-z0))/(ka*u_friction)
          raSO2 = (Pr*log(zr/z_roughSO2)+beta/L_Ob*(zr-z_roughSO2))/(vonk*u_friction)
-         raO3 = (Pr*log(zr/z_roughSO2)+beta/L_Ob*(zr-z_roughO3))/(vonk*u_friction)
+         raO3 = (Pr*log(zr/z_roughO3)+beta/L_Ob*(zr-z_roughO3))/(vonk*u_friction)
          raHNO3 = (Pr*log(zr/z_roughHNO3)+beta/L_Ob*(zr-z_roughHNO3))/(vonk*u_friction)
-         raisoprene = (Pr*log(zr/z_roughisoprene)+beta/L_Ob*(zr-z_roughisoprene))/(vonk*u_friction)
-         raapinene = (Pr*log(zr/z_roughapinene)+beta/L_Ob*(zr-z_roughapinene))/(vonk*u_friction)
+         !raisoprene = (Pr*log(zr/z_roughisoprene)+beta/L_Ob*(zr-z_roughisoprene))/(ka*u_friction)
+         !raapinene = (Pr*log(zr/z_roughapinene)+beta/L_Ob*(zr-z_roughapinene))/(ka*u_friction)
       else if (abs(Richards_nr10m)<=Ri_tol) then ! neutral boundary layer (abs(Ri)<1D-6
          ! ra_part = Pr*log(zr/z0)/(ka*u_friction)
          raSO2 = Pr*log(zr/z_roughSO2)/(vonk*u_friction)
          raO3 = Pr*log(zr/z_roughO3)/(vonk*u_friction)
          raHNO3 = Pr*log(zr/z_roughHNO3)/(vonk*u_friction)
-         raisoprene = Pr*log(zr/z_roughisoprene)/(vonk*u_friction)
-         raapinene = Pr*log(zr/z_roughapinene)/(vonk*u_friction)
-      else ! unstable boundary layer Ri<-1D-6
+         !raisoprene = Pr*log(zr/z_roughisoprene)/(ka*u_friction)
+         !raapinene = Pr*log(zr/z_roughapinene)/(ka*u_friction)
+      else ! unstable boundary layer Ri<-Ri_tol
          ! ra_part = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
          !   - log((sqrt(1.0_dp-gam*z0/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z0/L_Ob)+1.0_dp)))/(ka*u_friction)
          raSO2 = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
@@ -535,10 +519,10 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
               - log((sqrt(1.0_dp-gam*z_roughO3/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughO3/L_Ob)+1.0_dp)))/(vonk*u_friction)
          raHNO3 = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
               - log((sqrt(1.0_dp-gam*z_roughHNO3/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughHNO3/L_Ob)+1.0_dp)))/(vonk*u_friction)
-         raisoprene = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
-              - log((sqrt(1.0_dp-gam*z_roughisoprene/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughisoprene/L_Ob)+1.0_dp)))/(vonk*u_friction)
-         raapinene = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
-              - log((sqrt(1.0_dp-gam*z_roughapinene/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughapinene/L_Ob)+1.0_dp)))/(vonk*u_friction)
+         !raisoprene = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
+         !     - log((sqrt(1.0_dp-gam*z_roughisoprene/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughisoprene/L_Ob)+1.0_dp)))/(ka*u_friction)
+         !raapinene = Pr*(log((sqrt(1.0_dp-gam*zr/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*zr/L_Ob)+1.0_dp)) &
+         !     - log((sqrt(1.0_dp-gam*z_roughapinene/L_Ob)-1.0_dp)/(sqrt(1.0_dp-gam*z_roughapinene/L_Ob)+1.0_dp)))/(ka*u_friction)
       end if
        		
       !!! Calculate the quasi-laminar resistance for O3, SO2, HNO3, isoprene & a-pinene (rb):
@@ -547,15 +531,15 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
       ScSO2 = v_kinematic/DiffusivitySO2
       ScO3 = v_kinematic/DiffusivityO3
       ScHNO3 = v_kinematic/DiffusivityHNO3
-      Scisoprene = v_kinematic/Diffusivityisoprene
-      Scapinene = v_kinematic/Diffusivityapinene
+      !Scisoprene = v_kinematic/Diffusivityisoprene
+      !Scapinene = v_kinematic/Diffusivityapinene
 
       ! calculate rb
       rbSO2 = 5.0_dp * ScSO2**(2.0/3.0) / u_friction
       rbO3 = 5.0_dp * ScO3**(2.0/3.0) / u_friction
       rbHNO3 = 5.0_dp * ScHNO3**(2.0/3.0) / u_friction
-      rbisoprene = 5.0_dp * Scisoprene**(2.0/3.0) / u_friction
-      rbapinene = 5.0_dp * Scapinene**(2.0/3.0) / u_friction
+      !rbisoprene = 5.0_dp * Scisoprene**(2.0/3.0) / u_friction
+      !rbapinene = 5.0_dp * Scapinene**(2.0/3.0) / u_friction
       
       !!! Calculation of surface resistance for O3, SO2, HNO3, isoprene & a-pinene (rc):                         
       
@@ -563,33 +547,33 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        H_effSO2 = 1D5   ! M atm^-1
        H_effO3 = 1D-2   ! M atm^-1
        H_effHNO3 = 1D14 ! M atm^-1
-       H_effisoprene = 1.2D-2 ! M atm^-1
-       H_effapinene = 3D-2 ! M atm^-1
+       !H_effisoprene = 1.2D-2 ! M atm^-1
+       !H_effapinene = 3D-2 ! M atm^-1
        
        ! Noramlized reactivity, table 19.4 from Seinfeld and Pandis, 2006:
        f0_SO2 = 0D0
        f0_O3 = 1D0
        f0_HNO3 = 0D0
-       f0_isoprene = 0D0
-       f0_apinene = 0D0
+       !f0_isoprene = 0D0
+       !f0_apinene = 0D0
       
        ! Calculate the bulk canopy stomatal resistance (rst)
        ! if Ts\in[0,40.0] celcius
-       rst = rj * (1.0_dp + (200.0_dp/(DSWF+0.1))**2 * (400.0_dp/( (temperature-273.15_dp)*(temperature-273.15_dp-40.0_dp)))  )
+       rst = rj * (1.0_dp + (200.0_dp/(DSWF+0.1))**2 * (400.0_dp/( (temperature-273.15_dp)*(40.0_dp-temperature+273.15_dp)))  )
       
        ! Calculate the combined stomatal and mesophyll resistance (rsm):
        rsmSO2 = rst*D_ratio_SO2 + 1.0_dp/(33D-5*H_effSO2 + 1D2*f0_SO2)
        rsmO3 = rst*D_ratio_O3 + 1.0_dp/(33D-5*H_effO3 + 1D2*f0_O3)
        rsmHNO3 = rst*D_ratio_HNO3 + 1.0_dp/(33D-5*H_effHNO3 + 1D2*f0_HNO3)
-       rsmisoprene = rst*D_ratio_isoprene + 1.0_dp/(33D-5*H_effisoprene + 1D2*f0_isoprene)
-       rsmapinene = rst*D_ratio_apinene + 1.0_dp/(33D-5*H_effapinene + 1D2*f0_apinene)
+       !rsmisoprene = rst*D_ratio_isoprene + 1.0_dp/(33D-5*H_effisoprene + 1D2*f0_isoprene)
+       !rsmapinene = rst*D_ratio_apinene + 1.0_dp/(33D-5*H_effapinene + 1D2*f0_apinene)
       
        ! Calculate the resistance of the outer surfaces in the upper canopy (rlu):
        rluSO2 = rlu/( 1D-5*H_effSO2 + f0_SO2 )
        rluO3 = rlu/( 1D-5*H_effO3 + f0_O3 )
        rluHNO3 = rlu/( 1D-5*H_effHNO3 + f0_HNO3 )
-       rluisoprene = rlu/( 1D-5*H_effisoprene + f0_isoprene )
-       rluapinene = rlu/( 1D-5*H_effapinene + f0_apinene )
+       !rluisoprene = rlu/( 1D-5*H_effisoprene + f0_isoprene )
+       !rluapinene = rlu/( 1D-5*H_effapinene + f0_apinene )
       
        ! Calculate the resistance to transfer by buoyant convection (rdc):
        rdc = 1D2*(1D0 + 1D3/(DSWF+1D1))
@@ -597,22 +581,22 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
       ! Calculate the resistance of the exposed surfaces in the lower portions of 
        ! structures of the canopy (rcl):
        rclHNO3 = 1D0/((1D-5*H_effHNO3/rclSO2) + (f0_HNO3/rclO3) )
-       rclisoprene = 1D0/((1D-5*H_effisoprene/rclSO2) + (f0_isoprene/rclO3) )
-       rclapinene = 1D0/((1D-5*H_effapinene/rclSO2) + (f0_apinene/rclO3) )
+       !rclisoprene = 1D0/((1D-5*H_effisoprene/rclSO2) + (f0_isoprene/rclO3) )
+       !rclapinene = 1D0/((1D-5*H_effapinene/rclSO2) + (f0_apinene/rclO3) )
               
       ! Calculate the resistance of the exposed surfaces on the groud 
        !(soil,leaf litter, ground) (rgs):
        rgsHNO3 = 1D0/((1D-5*H_effHNO3/rgsSO2) + (f0_HNO3/rgsO3) )
-       rgsisoprene = 1D0/((1D-5*H_effisoprene/rgsSO2) + (f0_isoprene/rgsO3) )
-       rgsapinene = 1D0/((1D-5*H_effapinene/rgsSO2) + (f0_apinene/rgsO3) )
+       !rgsisoprene = 1D0/((1D-5*H_effisoprene/rgsSO2) + (f0_isoprene/rgsO3) )
+       !rgsapinene = 1D0/((1D-5*H_effapinene/rgsSO2) + (f0_apinene/rgsO3) )
       
       ! Combine all resistances in order to get the total surface resistance 
        ! for O3, SO2, HNO3, isoprene and a-pinene (rc):
-       rcSO2 = 1D0/( (1D0/rsmSO2) + (1D0/rluSO2) + (1D0/(rdc+rclSO2)) + (1D0/(rac+rgsSO2)) )
-       rcO3 = 1D0/( (1D0/rsmO3) + (1D0/rluO3) + (1D0/(rdc+rclO3)) + (1D0/(rac+rgsO3)) )
-       rcHNO3 = 1D0/( (1D0/rsmHNO3) + (1D0/rluHNO3) + (1D0/(rdc+rclHNO3)) + (1D0/(rac+rgsHNO3)) )
-       rcisoprene = 1D0/( (1D0/rsmisoprene) + (1D0/rluisoprene) + (1D0/(rdc+rclisoprene)) + (1D0/(rac+rgsisoprene)) )
-       rcapinene = 1D0/( (1D0/rsmapinene) + (1D0/rluapinene) + (1D0/(rdc+rclapinene)) + (1D0/(rac+rgsapinene)) )
+       rcSO2 = 1D0/( (1D0/rsmSO2) +  (1D0/rluSO2)+  (1D0/(rdc+rclSO2))  + (1D0/(rac+rgsSO2)) ) ! 
+       rcO3 = 1D0/(   (1D0/rsmO3) +    (1D0/rluO3)+  (1D0/(rdc+rclO3)) + (1D0/(rac+rgsO3)) )      !  
+       rcHNO3 = 1D0/( (1D0/rsmHNO3) +     (1D0/rluHNO3)+  (1D0/(rdc+rclHNO3)) + (1D0/(rac+rgsHNO3)) ) ! 
+       !rcisoprene = 1D0/( (1D0/rsmisoprene) + (1D0/rluisoprene) + (1D0/(rdc+rclisoprene)) + (1D0/(rac+rgsisoprene)) )
+       !rcapinene = 1D0/( (1D0/rsmapinene) + (1D0/rluapinene) + (1D0/(rdc+rclapinene)) + (1D0/(rac+rgsapinene)) )
        
        ! Finally calculate the dry deposition velocity of SO2, O3, HNO3, isoprene and a-pinene:
        v_dry_SO2 = 1D0/(raSO2+rbSO2+rcSO2)
@@ -621,12 +605,17 @@ SUBROUTINE dry_dep_velocity(diameter,particle_density,temperature,pressure,DSWF,
        !v_dry_isoprene = 1D0/(raisoprene+rbisoprene+rcisoprene)
        !v_dry_apinene = 1D0/(raapinene+rbapinene+rcapinene)
 
-       !if (.false.) then
-       !   write(*,*) "coucou"
-       !end if
-    
-
 END SUBROUTINE dry_dep_velocity
+
+
+
+
+
+
+
+
+
+
 
 
 !-----------------------------------------------------------------------------------------
